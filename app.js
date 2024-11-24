@@ -3,8 +3,8 @@ import paper from "paper";
 const canvas = document.querySelector(".paper-canvas");
 paper.setup(canvas);
 
-let width = canvas?.clientWidth;
-let height = canvas?.clientHeight;
+let width = canvas.clientWidth;
+let height = canvas.clientHeight;
 let distance = 20;
 
 for (let x = 0; x < width; x += distance) {
