@@ -1,6 +1,6 @@
 "use client"
 
-import { Settings, RotateCcw, Wand2, Zap } from "lucide-react"
+import { Settings, RotateCcw, Wand2, Zap, Sliders } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { Slider } from "@/components/ui/slider"
@@ -26,11 +26,16 @@ export function ParametersWidget() {
   return (
     <ToggleWidget 
       title="Parameters"
-      icon={<Settings size={14} className="animate-[spin_10s_linear_infinite]" />}
+      icon={<Sliders size={14} />}
       className="w-full"
       defaultOpen={true}
     >
-      <div className="space-y-5">
+      <div className="p-4 space-y-5">
+        {/* Info message */}
+        <p className="text-xs opacity-70 font-mono bg-black/5 dark:bg-white/5 p-2 rounded">
+          Adjust the parameters to customize your wallpaper. Click the Generate button to create a static image based on your settings.
+        </p>
+        
         {/* Visualization */}
         <div className="rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] flex items-center justify-center border border-black/10 dark:border-white/10">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-black/10 to-black/20 dark:from-white/10 dark:to-white/20 flex items-center justify-center">

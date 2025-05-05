@@ -3,11 +3,11 @@
 import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
-import { Waves, Hexagon, Wind } from "lucide-react";
+import { Waves, Hexagon, Wind, Play, Trash2 } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
-  const { algorithm, setAlgorithm } = useAlgorithm();
+  const { algorithm, setAlgorithm, isGenerating, toggleGenerating, hasContent, clearCanvas } = useAlgorithm();
   
   return (
     <div className="relative w-full min-h-screen">
@@ -24,6 +24,28 @@ export default function Home() {
               height={675} 
               className="w-full h-full"
             />
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={toggleGenerating}
+              disabled={isGenerating}
+              className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-black text-white hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <Play size={16} />
+              {isGenerating ? "Generating..." : "Generate Wallpaper"}
+            </button>
+            
+            {hasContent && (
+              <button
+                onClick={clearCanvas}
+                className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all"
+              >
+                <Trash2 size={16} />
+                Clear Canvas
+              </button>
+            )}
           </div>
           
           {/* Algorithm Selection */}

@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import p5 from "p5";
 import { useAlgorithm } from "@/context/algorithm-context";
+import { QuadTree, Rectangle } from "@/components/quadtree";
 
 interface P5CanvasProps {
   width?: number;
@@ -18,7 +19,10 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
   const { 
     algorithm, 
     params, 
-    getCurrentColors 
+    getCurrentColors,
+    isAnimating,
+    isGenerating,
+    hasContent
   } = useAlgorithm();
 
   // Define sketch as a callback that can be referenced later
@@ -26,6 +30,8 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
     // Shared variables
     let time = 0;
     let particles: any[] = [];
+    let quadtree: QuadTree<any> | null = null;
+    const QUAD_CAP = 8; // Capacity of quadtree nodes
     
     // Get normalized parameter values
     const getNormalizedParams = () => {
@@ -51,57 +57,47 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       return [p.red(color), p.green(color), p.blue(color)];
     };
     
-    // Perlin Noise Implementation
+    // Initialize or reset the quadtree
+    const resetQuadtree = () => {
+      // Create a boundary that covers the entire canvas
+      const boundary = new Rectangle(p.width/2, p.height/2, p.width/2, p.height/2);
+      quadtree = new QuadTree(boundary, QUAD_CAP);
+    };
+    
+    // Update the Perlin Noise Implementation for better widget integration
     class PerlinParticle {
-      pos: p5.Vector;
-      vel: p5.Vector;
+      x: number;
+      y: number;
+      color: p5.Color;
       size: number;
-      opacity: number;
-      shapeType: 'circle' | 'square';
       speed: number;
       
-      constructor() {
-        const normalizedParams = getNormalizedParams();
-        this.pos = p5.Vector.random2D().mult(p.random(p.width * 0.3, p.width * 0.5)).add(p.width/2, p.height/2);
-        this.vel = p5.Vector.random2D().mult(p.random(0.2, 1.0));
-        this.size = p.random(3, 15);
-        this.opacity = p.random(100, 200);
-        this.shapeType = p.random() > 0.5 ? 'circle' : 'square';
-        this.speed = p.random(0.2, 1.2) * normalizedParams.speed;
+      constructor(particleColor: p5.Color, complexity: number) {
+        this.x = p.random(p.width);
+        this.y = p.random(p.height);
+        this.color = particleColor;
+        this.size = p.random(1, 1 + (complexity / 30));
+        this.speed = p.random(0.8, 1.2);
       }
       
-      update(noiseScale: number) {
-        // Use noise for more organic movement
-        const angle = p.noise(
-          this.pos.x * noiseScale, 
-          this.pos.y * noiseScale, 
-          time * 0.1
-        ) * p.TWO_PI * 4;
+      update(moveSpeed: number, moveScale: number) {
+        // Get angle from Perlin noise
+        const angle = p.noise(this.x / moveScale, this.y / moveScale, time * 0.05) * p.TWO_PI * moveScale;
         
-        const dir = p5.Vector.fromAngle(angle);
-        dir.mult(this.speed);
-        this.vel.add(dir);
-        this.vel.limit(2.5);
-        this.pos.add(this.vel);
+        // Update position based on angle
+        this.x += p.cos(angle) * moveSpeed * this.speed;
+        this.y += p.sin(angle) * moveSpeed * this.speed;
         
-        // Wrap around edges
-        if (this.pos.x < 0) this.pos.x = p.width;
-        if (this.pos.x > p.width) this.pos.x = 0;
-        if (this.pos.y < 0) this.pos.y = p.height;
-        if (this.pos.y > p.height) this.pos.y = 0;
-      }
-      
-      display(foregroundColor: p5.Color) {
-        p.noStroke();
-        const [r, g, b] = getRGB(foregroundColor);
-        p.fill(r, g, b, this.opacity);
-        
-        if (this.shapeType === 'circle') {
-          p.circle(this.pos.x, this.pos.y, this.size);
-        } else {
-          p.rectMode(p.CENTER);
-          p.rect(this.pos.x, this.pos.y, this.size, this.size, 2);
+        // Reset particle if it goes off screen or randomly (for variety)
+        if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.001) {
+          this.x = p.random(p.width);
+          this.y = p.random(p.height);
         }
+      }
+      
+      display() {
+        p.fill(this.color);
+        p.ellipse(this.x, this.y, this.size, this.size);
       }
     }
     
@@ -267,6 +263,18 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
         const containerHeight = canvasRef.current.clientHeight;
         
         p.resizeCanvas(containerWidth, containerHeight);
+        
+        // Reset quadtree if it exists
+        if (quadtree) {
+          resetQuadtree();
+          
+          // Reinsert all particles into the new quadtree
+          if (algorithm === 'perlinNoise') {
+            for (const particle of particles) {
+              quadtree.insert(particle);
+            }
+          }
+        }
       }
     };
     
@@ -276,30 +284,74 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       const containerHeight = canvasRef.current?.clientHeight || height;
       
       p.createCanvas(containerWidth, containerHeight);
+      p.noStroke(); // Add this for the Perlin algorithm
       
+      resetQuadtree();
       initializeParticles();
+      
+      // Initialize with no animation if isAnimating is false
+      if (!isAnimating) {
+        p.noLoop();
+      }
     };
     
-    // Initialize particles based on current algorithm
+    // Initialize particles based on the current algorithm with quadtree integration
     const initializeParticles = () => {
       const normalizedParams = getNormalizedParams();
       
       particles = [];
       
+      // Reset quadtree
+      resetQuadtree();
+      
       if (algorithm === 'perlinNoise') {
-        for (let i = 0; i < normalizedParams.density; i++) {
-          particles.push(new PerlinParticle());
+        // Get the base colors for particles
+        const colors = getColors();
+        const foreground = colors.foreground;
+        
+        // Create derived colors for variety (simplified to just 3 colors)
+        const particleColors = [];
+        const [r, g, b] = getRGB(foreground);
+        
+        // Reduce number of color variations for performance
+        particleColors.push(foreground);
+        particleColors.push(p.color(r * 0.8, g * 0.8, b * 0.8));
+        particleColors.push(p.color(r * 0.6, g * 0.6, b * 0.6));
+        
+        // Create particles distributed across the canvas with quadtree optimization
+        // Use quadtree capacity to determine particle count - more optimal
+        const quadtreeLevels = 5 + Math.floor(normalizedParams.density / 20); // 5-10 levels based on density
+        const maxParticles = QUAD_CAP * (4 ** quadtreeLevels - 1) / 3; // Formula for complete quadtree
+        const particleCount = Math.min(
+          Math.floor(maxParticles * (normalizedParams.density / 100)), 
+          400
+        ); // Cap at 400 particles
+        
+        console.log(`Creating ${particleCount} particles with quadtree optimization`);
+        
+        // Create particles with the colors
+        for (let i = 0; i < particleCount; i++) {
+          const color = particleColors[Math.floor(p.random(particleColors.length))];
+          const particle = new PerlinParticle(color, normalizedParams.complexity * 10);
+          particles.push(particle);
+        }
+        
+        // If randomize on load is enabled, slightly shift particle positions
+        if (params.randomizeOnLoad) {
+          // Set a random starting time offset
+          time = p.random(0, 1000);
         }
       } else if (algorithm === 'flowField') {
-        for (let i = 0; i < normalizedParams.density * 0.75; i++) {
-          particles.push(new FlowFieldParticle());
+        // Original flow field implementation without quadtree
+        const particleCount = Math.min(100, Math.floor(normalizedParams.density * 0.3));
+        for (let i = 0; i < particleCount; i++) {
+          const particle = new FlowFieldParticle();
+          particles.push(particle);
         }
       } else if (algorithm === 'cellular') {
-        // For cellular automata, create a single manager object
-        const cellSize = Math.floor(12 - (normalizedParams.complexity * 0.8));
+        // Original cellular automata implementation
+        const cellSize = Math.floor(16 - (normalizedParams.complexity * 0.5));
         particles = [new CellularAutomata(cellSize)];
-        
-        // Initialize with random state based on density
         particles[0].randomize(normalizedParams.density);
       }
     };
@@ -309,45 +361,107 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       const normalizedParams = getNormalizedParams();
       const colors = getColors();
       
-      // Apply background with alpha for trails
-      if (algorithm === 'flowField') {
-        // For flow field, use more trail effect
-        const [r, g, b] = getRGB(colors.background);
-        p.background(r, g, b, 5);
-      } else {
-        p.background(colors.background);
-      }
+      // Always start with a clean background
+      const [r, g, b] = getRGB(colors.background);
+      p.background(r, g, b);
       
-      // Update time based on speed
-      time += normalizedParams.speed * 0.01;
-      
-      // Process current algorithm
-      if (algorithm === 'perlinNoise') {
-        // Draw subtle grid for Perlin noise
-        drawGrid(colors.foreground, 10);
+      // Only draw content if hasContent is true
+      if (hasContent) {
+        // --- Internal Simulation for Static Image --- 
+        const simulationSteps = 75; // Simulate this many steps before drawing
         
-        // Update and display particles
-        for (const particle of particles) {
-          particle.update(normalizedParams.noiseScale);
-          particle.display(colors.foreground);
+        if (algorithm === 'perlinNoise') {
+          resetQuadtree();
+          // Run simulation internally
+          for (let step = 0; step < simulationSteps; step++) {
+            time += normalizedParams.speed * 0.01; // Advance time
+            const moveSpeed = normalizedParams.speed * 0.2;
+            const moveScale = 500 + normalizedParams.noiseScale * 500;
+            for (const particle of particles) {
+              particle.update(moveSpeed, moveScale); // Use existing update logic
+            }
+          }
+          // Insert final positions into quadtree after simulation
+          for (const particle of particles) {
+            quadtree!.insert(particle);
+          }
+        } else if (algorithm === 'flowField') {
+          // Run simulation internally
+          for (let step = 0; step < simulationSteps; step++) {
+            time += normalizedParams.speed * 0.01; // Advance time
+            for (const particle of particles) {
+              particle.update(normalizedParams.noiseScale, normalizedParams.speed);
+              // Update prevPos only on the last step for correct line drawing
+              if (step === simulationSteps - 1) {
+                 particle.prevPos = particle.pos.copy(); // Capture final position as prev for display
+              }
+            }
+          }
+        } else if (algorithm === 'cellular' && particles.length > 0) {
+          // Run simulation internally
+          for (let step = 0; step < simulationSteps; step++) {
+            // Only update cellular every few sim steps based on speed param for visual stability
+            if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
+               particles[0].update(normalizedParams.complexity);
+            }
+          }
         }
-      } else if (algorithm === 'flowField') {
-        // Process flow field particles
-        for (const particle of particles) {
-          particle.update(normalizedParams.noiseScale, normalizedParams.speed);
-          particle.display();
+        // --- End Internal Simulation ---
+
+        // --- Drawing Step (Based on final simulated state) ---
+        if (algorithm === 'perlinNoise') {
+          const visibleArea = new Rectangle(p.width/2, p.height/2, p.width/2, p.height/2);
+          const visibleParticles = quadtree!.query(visibleArea);
+          for (const particle of visibleParticles) {
+            particle.display();
+          }
+          drawBorder(colors.foreground);
+        } else if (algorithm === 'flowField') {
+          for (const particle of particles) {
+            // For static, draw lines thicker and less transparent
+            const [fr, fg, fb] = getRGB(particle.color);
+            p.stroke(fr, fg, fb, 180); // More opaque
+            p.strokeWeight(particle.strokeWeight * 1.5); // Slightly thicker
+            p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
+          }
+          drawBorder(colors.foreground);
+        } else if (algorithm === 'cellular' && particles.length > 0) {
+          particles[0].display(colors.foreground);
+          drawBorder(colors.foreground);
         }
-      } else if (algorithm === 'cellular' && particles.length > 0) {
-        // Process cellular automata
-        // Only update every few frames based on speed
-        if (p.frameCount % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
-          particles[0].update(normalizedParams.complexity);
-        }
-        particles[0].display(colors.foreground);
+        // --- End Drawing Step ---
+        
+      } else {
+        // Just draw the border for empty state
+        drawBorder(colors.foreground);
       }
       
-      // Draw border frame
-      drawBorder(colors.foreground);
+      // Always stop the loop after drawing. Redraws are triggered by useEffect
+      p.noLoop();
+    };
+    
+    // Debug function to visualize the quadtree structure
+    const drawQuadtree = () => {
+      if (!quadtree) return;
+      
+      const drawNode = (node: any) => {
+        // Draw this node's boundary
+        p.noFill();
+        p.stroke(255, 50);
+        p.strokeWeight(1);
+        p.rectMode(p.CENTER);
+        p.rect(node.boundary.x, node.boundary.y, node.boundary.w * 2, node.boundary.h * 2);
+        
+        // Draw children if divided
+        if (node.divided) {
+          drawNode(node.northeast);
+          drawNode(node.northwest);
+          drawNode(node.southeast);
+          drawNode(node.southwest);
+        }
+      };
+      
+      drawNode(quadtree);
     };
     
     // Draw subtle grid
@@ -379,7 +493,7 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
     p.windowResized = () => {
       handleResize();
     };
-  }, [algorithm, params, getCurrentColors]);
+  }, [algorithm, params, getCurrentColors, isAnimating, isGenerating, hasContent]);
 
   useEffect(() => {
     // Create a new p5 instance
@@ -409,5 +523,28 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
     }
   }, [algorithm, createSketch]);
 
+  // Add an effect to handle animation state changes
+  useEffect(() => {
+    if (sketchInstance.current) {
+      if (isAnimating) {
+        sketchInstance.current.loop();
+      } else {
+        // When stopping animation, ensure we render one final frame
+        if (!sketchInstance.current.isLooping()) {
+          sketchInstance.current.redraw();
+        }
+        sketchInstance.current.noLoop();
+      }
+    }
+  }, [isAnimating]);
+
+  // Add effect to redraw when parameters change while canvas has content
+  useEffect(() => {
+    if (hasContent && sketchInstance.current) {
+      // Force a redraw with new parameters
+      sketchInstance.current.redraw();
+    }
+  }, [hasContent, params, algorithm, getCurrentColors]);
+
   return <div ref={canvasRef} className={`w-full h-full ${className}`} />;
-} 
+}

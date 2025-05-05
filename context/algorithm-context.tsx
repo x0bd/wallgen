@@ -38,6 +38,11 @@ interface AlgorithmContextState {
   setIsInverted: (inverted: boolean) => void
   addCustomColor: (color: Omit<ColorOption, 'id' | 'isCustom'>) => void
   getCurrentColors: () => { background: string, foreground: string }
+  isAnimating: boolean
+  isGenerating: boolean
+  hasContent: boolean
+  toggleGenerating: () => void
+  clearCanvas: () => void
 }
 
 // Create context with default values
@@ -76,6 +81,11 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   const [selectedColorId, setSelectedColorId] = useState("bw")
   const [isInverted, setIsInverted] = useState(false)
   
+  // Animation and generation state
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [hasContent, setHasContent] = useState(false)
+  
   // Update parameters
   const updateParams = (updates: Partial<AlgorithmParams>) => {
     setParams(prev => ({ ...prev, ...updates }))
@@ -84,6 +94,25 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Reset parameters
   const resetParams = () => {
     setParams(defaultParams)
+  }
+  
+  // Toggle generating state - now directly creates a static image
+  const toggleGenerating = () => {
+    if (!isGenerating) {
+      // Start generating
+      setIsGenerating(true)
+      
+      // Just a brief moment for rendering
+      setTimeout(() => {
+        setIsGenerating(false)
+        setHasContent(true)
+      }, 500)
+    }
+  }
+  
+  // Clear the canvas
+  const clearCanvas = () => {
+    setHasContent(false)
   }
   
   // Add custom color
@@ -121,7 +150,12 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
         isInverted,
         setIsInverted,
         addCustomColor,
-        getCurrentColors
+        getCurrentColors,
+        isAnimating,
+        isGenerating,
+        hasContent,
+        toggleGenerating,
+        clearCanvas
       }}
     >
       {children}
