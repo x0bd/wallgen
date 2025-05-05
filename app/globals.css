@@ -160,4 +160,16 @@
     @apply bg-white/90 dark:bg-black/90 border border-black/20 dark:border-white/20 rounded-xl;
     box-shadow: var(--shadow-soft);
   }
+  
+  /* Hide scrollbar but allow scrolling */
+  .hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer and Edge */
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
 }
