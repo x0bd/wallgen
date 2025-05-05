@@ -1,102 +1,73 @@
-import Image from "next/image";
+import { P5Canvas } from "@/components/P5Canvas";
+import { Navbar } from "@/components/navbar";
+import { Download, Settings, GridIcon, Waves, Hexagon, Wind } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="relative w-full min-h-screen">
+      {/* Navbar Component */}
+      <Navbar />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+      {/* Main Content - Canvas Center Stage */}
+      <main className="pt-20 px-6 pb-16 flex flex-col items-center justify-center min-h-screen">
+        <div className="w-full max-w-6xl mx-auto flex flex-col items-center gap-8">
+          {/* Canvas as the Main Focus */}
+          <div className="card-neo aspect-video w-full bg-black p-0 overflow-hidden">
+            <P5Canvas 
+              width={1200} 
+              height={675} 
+              className="w-full h-full"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
+          
+          {/* Algorithm Controls */}
+          <div className="w-full flex flex-wrap items-center justify-between gap-6">
+            <div className="font-mono text-xs">
+              <div className="flex items-center gap-2 mb-4">
+                <GridIcon size={14} className="opacity-70" />
+                <span className="opacity-70 uppercase tracking-wide">SELECT ALGORITHM</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button className="neo-brutal group px-3 py-2 text-xs font-mono bg-black text-white dark:bg-white dark:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
+                  <Waves size={14} className="group-hover:animate-pulse" />
+                  <span>PERLIN NOISE</span>
+                </button>
+                <button className="neo-brutal group px-3 py-2 text-xs font-mono hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
+                  <Hexagon size={14} className="group-hover:animate-pulse" />
+                  <span>CELLULAR</span>
+                </button>
+                <button className="neo-brutal group px-3 py-2 text-xs font-mono hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
+                  <Wind size={14} className="group-hover:animate-pulse" />
+                  <span>FLOW FIELD</span>
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <button className="neo-brutal flex items-center gap-2 bg-black text-white dark:bg-white dark:text-black py-2 px-4 font-mono text-xs uppercase hover:translate-y-[-4px] transition-all">
+                <Settings size={14} className="animate-[spin_8s_linear_infinite]" />
+                <span>Parameters</span>
+              </button>
+              
+              <button className="neo-brutal flex items-center gap-2 py-2 px-4 font-mono text-xs uppercase hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:translate-y-[-4px] transition-all">
+                <Download size={14} />
+                <span>Export</span>
+              </button>
+            </div>
+          </div>
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+
+      {/* Minimal Footer */}
+      <footer className="fixed bottom-0 left-0 w-full border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/80 backdrop-blur-sm px-6 py-3">
+        <div className="flex justify-between items-center max-w-6xl mx-auto">
+          <p className="font-mono text-xs opacity-60">
+            MADE WITH NEXT.JS & P5.JS
+          </p>
+          <p className="font-mono text-xs opacity-50">
+            © 2024
+          </p>
+        </div>
       </footer>
     </div>
   );
