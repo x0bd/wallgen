@@ -2,6 +2,7 @@
 
 import { Download, MonitorSmartphone, Smartphone, ArrowRight, Code, Image } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { useState } from "react"
 
 type ExportSize = {
@@ -28,6 +29,7 @@ export function ExportWidget() {
   const [isCustomSize, setIsCustomSize] = useState(false)
   const [customWidth, setCustomWidth] = useState("1200")
   const [customHeight, setCustomHeight] = useState("630")
+  const [includeSourceCode, setIncludeSourceCode] = useState(false)
   
   const selectedSize = sizes.find(s => s.id === selectedSizeId) || sizes[0]
   const displayWidth = selectedSizeId === "custom" ? customWidth : selectedSize.width
@@ -148,11 +150,10 @@ export function ExportWidget() {
           </label>
           <div className="flex items-center justify-between text-xs p-2 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10">
             <span className="font-mono opacity-70">Include Source Code</span>
-            <button 
-              className="relative h-5 w-9 rounded-full bg-black/10 dark:bg-white/10 p-0.5"
-            >
-              <div className="h-4 w-4 rounded-full bg-black dark:bg-white absolute transition-all duration-200 translate-x-0"></div>
-            </button>
+            <ToggleSwitch 
+              isOn={includeSourceCode} 
+              onToggle={() => setIncludeSourceCode(!includeSourceCode)} 
+            />
           </div>
         </div>
         

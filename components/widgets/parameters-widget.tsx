@@ -1,7 +1,8 @@
 "use client"
 
-import { Settings, RotateCcw } from "lucide-react"
+import { Settings, RotateCcw, Wand2, Zap } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { Slider } from "@/components/ui/slider"
 import { useState } from "react"
 
@@ -10,6 +11,9 @@ export function ParametersWidget() {
   const [speed, setSpeed] = useState(30)
   const [complexity, setComplexity] = useState(70)
   const [density, setDensity] = useState(60)
+  
+  const [autoAdjust, setAutoAdjust] = useState(true)
+  const [randomizeOnLoad, setRandomizeOnLoad] = useState(false)
   
   const handleReset = () => {
     setNoiseScale(50)
@@ -95,6 +99,29 @@ export function ParametersWidget() {
             step={1}
             className="[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white"
           />
+        </div>
+        
+        {/* Advanced Options */}
+        <div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
+          <p className="text-xs font-mono tracking-tight">ADVANCED OPTIONS</p>
+          
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-2 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-1.5">
+                <Wand2 size={14} className="opacity-60" />
+                <span className="text-xs font-mono">Auto-adjust</span>
+              </div>
+              <ToggleSwitch isOn={autoAdjust} onToggle={() => setAutoAdjust(!autoAdjust)} />
+            </div>
+            
+            <div className="flex items-center justify-between p-2 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-1.5">
+                <Zap size={14} className="opacity-60" />
+                <span className="text-xs font-mono">Randomize on load</span>
+              </div>
+              <ToggleSwitch isOn={randomizeOnLoad} onToggle={() => setRandomizeOnLoad(!randomizeOnLoad)} />
+            </div>
+          </div>
         </div>
         
         {/* Reset Button */}

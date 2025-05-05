@@ -2,6 +2,7 @@
 
 import { Paintbrush, Plus, Check, Save } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { useState } from "react"
 
 type ColorOption = {
@@ -176,14 +177,7 @@ export function ColorWidget() {
         {/* Invert Toggle */}
         <div className="flex items-center justify-between">
           <label className="text-xs font-mono">Invert Colors</label>
-          <button 
-            onClick={() => setIsInverted(!isInverted)}
-            className="relative h-5 w-9 rounded-full bg-black/10 dark:bg-white/10 p-0.5"
-          >
-            <div className={`h-4 w-4 rounded-full bg-black dark:bg-white absolute transition-all duration-200 ${
-              isInverted ? 'translate-x-4' : 'translate-x-0'
-            }`}></div>
-          </button>
+          <ToggleSwitch isOn={isInverted} onToggle={() => setIsInverted(!isInverted)} />
         </div>
         
         {/* Apply Button */}
