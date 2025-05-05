@@ -4,28 +4,19 @@ import { Paintbrush, Plus, Check, Save } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { useState } from "react"
-
-type ColorOption = {
-  id: string
-  background: string
-  foreground: string
-  label: string
-  isCustom?: boolean
-}
+import { useAlgorithm } from "@/context/algorithm-context"
 
 export function ColorWidget() {
-  const defaultColorOptions: ColorOption[] = [
-    { id: "bw", background: "#000000", foreground: "#FFFFFF", label: "B&W" },
-    { id: "wb", background: "#FFFFFF", foreground: "#000000", label: "W&B" },
-    { id: "gray", background: "#222222", foreground: "#DDDDDD", label: "Gray" },
-    { id: "blue", background: "#0F172A", foreground: "#E2E8F0", label: "Blue" },
-    { id: "purple", background: "#2E1065", foreground: "#DDD6FE", label: "Purple" },
-    { id: "red", background: "#4C0519", foreground: "#FED7E2", label: "Red" },
-  ]
+  const { 
+    colorOptions, 
+    selectedColorId, 
+    setSelectedColorId,
+    isInverted, 
+    setIsInverted,
+    addCustomColor,
+    getCurrentColors
+  } = useAlgorithm();
   
-  const [colorOptions, setColorOptions] = useState<ColorOption[]>(defaultColorOptions)
-  const [selectedColorId, setSelectedColorId] = useState("bw")
-  const [isInverted, setIsInverted] = useState(false)
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [customBackground, setCustomBackground] = useState("#111111")
   const [customForeground, setCustomForeground] = useState("#f9f9f9")
@@ -34,23 +25,17 @@ export function ColorWidget() {
   const handleAddCustomColor = () => {
     if (!customLabel.trim()) return
     
-    const newColor: ColorOption = {
-      id: `custom_${Date.now()}`,
+    addCustomColor({
       background: customBackground,
       foreground: customForeground,
-      label: customLabel,
-      isCustom: true
-    }
+      label: customLabel
+    });
     
-    setColorOptions([...colorOptions, newColor])
-    setSelectedColorId(newColor.id)
     setShowColorPicker(false)
     setCustomLabel("")
   }
 
-  const selectedColor = colorOptions.find(c => c.id === selectedColorId) || colorOptions[0]
-  const currentBackground = isInverted ? selectedColor.foreground : selectedColor.background
-  const currentForeground = isInverted ? selectedColor.background : selectedColor.foreground
+  const currentColors = getCurrentColors();
   
   return (
     <ToggleWidget 
@@ -63,12 +48,12 @@ export function ColorWidget() {
         <div className="h-16 rounded-lg overflow-hidden shadow-sm border border-black/10 dark:border-white/10 bg-neutral-100 dark:bg-neutral-900">
           <div 
             className="w-full h-full flex items-center justify-center"
-            style={{ backgroundColor: currentBackground }}
+            style={{ backgroundColor: currentColors.background }}
           >
             <div className="w-8 h-8 rounded-full flex items-center justify-center" 
-              style={{ backgroundColor: currentForeground }}
+              style={{ backgroundColor: currentColors.foreground }}
             >
-              <Paintbrush size={14} style={{ color: currentBackground }} />
+              <Paintbrush size={14} style={{ color: currentColors.background }} />
             </div>
           </div>
         </div>

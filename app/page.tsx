@@ -1,9 +1,14 @@
+"use client"
+
 import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { Waves, Hexagon, Wind } from "lucide-react";
+import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
+  const { algorithm, setAlgorithm } = useAlgorithm();
+  
   return (
     <div className="relative w-full min-h-screen">
       {/* Navbar Component */}
@@ -23,16 +28,39 @@ export default function Home() {
           
           {/* Algorithm Selection */}
           <div className="w-full flex flex-wrap items-center justify-center gap-3">
-            <button className="neo-brutal group px-4 py-2.5 text-xs font-mono bg-black text-white dark:bg-white dark:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
-              <Waves size={14} className="group-hover:animate-pulse" />
+            <button 
+              onClick={() => setAlgorithm('perlinNoise')}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'perlinNoise' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+            >
+              <Waves size={14} className={`${algorithm === 'perlinNoise' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>PERLIN NOISE</span>
             </button>
-            <button className="neo-brutal group px-4 py-2.5 text-xs font-mono hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
-              <Hexagon size={14} className="group-hover:animate-pulse" />
+            
+            <button 
+              onClick={() => setAlgorithm('cellular')}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'cellular' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+            >
+              <Hexagon size={14} className={`${algorithm === 'cellular' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>CELLULAR</span>
             </button>
-            <button className="neo-brutal group px-4 py-2.5 text-xs font-mono hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:translate-y-[-4px] transition-all flex items-center gap-2">
-              <Wind size={14} className="group-hover:animate-pulse" />
+            
+            <button 
+              onClick={() => setAlgorithm('flowField')}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'flowField' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+            >
+              <Wind size={14} className={`${algorithm === 'flowField' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>FLOW FIELD</span>
             </button>
           </div>
