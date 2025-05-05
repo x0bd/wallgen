@@ -4,6 +4,7 @@ import { Download, MonitorSmartphone, Smartphone, ArrowRight, Code, Image } from
 import { ToggleWidget } from "@/components/ui/toggle-widget"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { useState } from "react"
+import { useAlgorithm } from "@/context/algorithm-context"
 
 type ExportSize = {
   id: string
@@ -14,6 +15,8 @@ type ExportSize = {
 }
 
 export function ExportWidget() {
+  const { isGenerating } = useAlgorithm();
+  
   const sizes: ExportSize[] = [
     { id: "hd", width: 1920, height: 1080, label: "HD (1920×1080)" },
     { id: "4k", width: 3840, height: 2160, label: "4K (3840×2160)" },
@@ -50,7 +53,7 @@ export function ExportWidget() {
         {/* Preview */}
         <div className="rounded-lg overflow-hidden bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] p-3 flex flex-col items-center justify-center border border-black/10 dark:border-white/10">
           <div className="relative w-32 h-20 bg-black/10 dark:bg-white/10 rounded-md overflow-hidden flex items-center justify-center mb-2">
-            <Image size={16} className="text-black/30 dark:text-white/30" />
+            <Image size={16} className={`text-black/30 dark:text-white/30 ${isGenerating ? 'animate-pulse' : ''}`} />
           </div>
           <p className="text-xs font-mono tracking-tight text-center">
             <span className="opacity-70">{displayWidth} × {displayHeight}</span> • {fileFormat.toUpperCase()}
@@ -65,11 +68,12 @@ export function ExportWidget() {
               <button
                 key={size.id}
                 onClick={() => handleSizeSelect(size.id)}
+                disabled={isGenerating}
                 className={`flex items-center justify-between py-1.5 px-2 rounded-lg border text-xs font-mono transition-all ${
                   selectedSizeId === size.id 
                   ? 'border-black dark:border-white bg-black/[0.03] dark:bg-white/[0.03]' 
                   : 'border-black/10 dark:border-white/10 opacity-70 hover:opacity-100'
-                }`}
+                } ${isGenerating ? 'pointer-events-none opacity-50' : ''}`}
               >
                 <div className="flex items-center gap-1">
                   {size.icon}
@@ -91,7 +95,8 @@ export function ExportWidget() {
                   type="number"
                   value={customWidth}
                   onChange={(e) => setCustomWidth(e.target.value)}
-                  className="w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono"
+                  disabled={isGenerating}
+                  className={`w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
                   placeholder="Width"
                 />
               </div>
@@ -103,7 +108,8 @@ export function ExportWidget() {
                   type="number"
                   value={customHeight}
                   onChange={(e) => setCustomHeight(e.target.value)}
-                  className="w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono"
+                  disabled={isGenerating}
+                  className={`w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
                   placeholder="Height"
                 />
               </div>
@@ -118,7 +124,8 @@ export function ExportWidget() {
             type="text"
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}
-            className="w-full h-9 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-3 text-xs font-mono"
+            disabled={isGenerating}
+            className={`w-full h-9 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-3 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
           />
         </div>
         
@@ -130,11 +137,12 @@ export function ExportWidget() {
               <button
                 key={format}
                 onClick={() => setFileFormat(format)}
+                disabled={isGenerating}
                 className={`flex-1 py-2 text-xs font-mono uppercase transition-colors ${
                   fileFormat === format 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'bg-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.03]'
-                }`}
+                } ${isGenerating ? 'pointer-events-none opacity-50' : ''}`}
               >
                 {format}
               </button>
@@ -152,13 +160,17 @@ export function ExportWidget() {
             <span className="font-mono opacity-70">Include Source Code</span>
             <ToggleSwitch 
               isOn={includeSourceCode} 
-              onToggle={() => setIncludeSourceCode(!includeSourceCode)} 
+              onToggle={() => setIncludeSourceCode(!includeSourceCode)}
+              disabled={isGenerating}
             />
           </div>
         </div>
         
         {/* Download Button */}
-        <button className="w-full neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5">
+        <button 
+          disabled={isGenerating}
+          className={`w-full neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+        >
           <Download size={14} />
           <span>Download Wallpaper</span>
         </button>

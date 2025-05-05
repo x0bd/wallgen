@@ -14,7 +14,8 @@ export function ColorWidget() {
     isInverted, 
     setIsInverted,
     addCustomColor,
-    getCurrentColors
+    getCurrentColors,
+    isGenerating
   } = useAlgorithm();
   
   const [showColorPicker, setShowColorPicker] = useState(false)
@@ -53,7 +54,7 @@ export function ColorWidget() {
             <div className="w-8 h-8 rounded-full flex items-center justify-center" 
               style={{ backgroundColor: currentColors.foreground }}
             >
-              <Paintbrush size={14} style={{ color: currentColors.background }} />
+              <Paintbrush size={14} style={{ color: currentColors.background }} className={isGenerating ? "animate-pulse" : ""} />
             </div>
           </div>
         </div>
@@ -64,7 +65,8 @@ export function ColorWidget() {
             <label className="text-xs font-mono tracking-tight">COLOR PALETTES</label>
             <button 
               onClick={() => setShowColorPicker(!showColorPicker)}
-              className="text-xs font-mono flex items-center gap-1 py-1 px-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              disabled={isGenerating}
+              className={`text-xs font-mono flex items-center gap-1 py-1 px-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
             >
               <Plus size={12} />
               <span>Add</span>
@@ -76,9 +78,10 @@ export function ColorWidget() {
               <button
                 key={color.id}
                 onClick={() => setSelectedColorId(color.id)}
+                disabled={isGenerating}
                 className={`flex flex-col items-center p-2 rounded-lg transition-all ${
                   selectedColorId === color.id ? 'ring-1 ring-black dark:ring-white ring-offset-1 ring-offset-white dark:ring-offset-black' : 'opacity-70 hover:opacity-100'
-                }`}
+                } ${isGenerating ? 'pointer-events-none' : ''}`}
               >
                 <div 
                   className="w-full aspect-video mb-1 rounded-md border border-black/10 dark:border-white/10 flex items-center justify-center overflow-hidden"
@@ -108,7 +111,8 @@ export function ColorWidget() {
                     type="text"
                     value={customBackground}
                     onChange={(e) => setCustomBackground(e.target.value)}
-                    className="flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono"
+                    disabled={isGenerating}
+                    className={`flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
                   />
                 </div>
               </div>
@@ -123,7 +127,8 @@ export function ColorWidget() {
                     type="text"
                     value={customForeground}
                     onChange={(e) => setCustomForeground(e.target.value)}
-                    className="flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono"
+                    disabled={isGenerating}
+                    className={`flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
                   />
                 </div>
               </div>
@@ -136,14 +141,15 @@ export function ColorWidget() {
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Enter palette name"
-                className="w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono"
+                disabled={isGenerating}
+                className={`w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
               />
             </div>
             
             <div className="flex space-x-2">
               <button 
                 onClick={handleAddCustomColor}
-                disabled={!customLabel.trim()}
+                disabled={!customLabel.trim() || isGenerating}
                 className="flex-1 neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 <Save size={12} />
@@ -151,7 +157,8 @@ export function ColorWidget() {
               </button>
               <button 
                 onClick={() => setShowColorPicker(false)}
-                className="w-10 neo-brutal py-2 text-xs font-mono text-center hover:-translate-y-[2px] transition-all"
+                disabled={isGenerating}
+                className={`w-10 neo-brutal py-2 text-xs font-mono text-center hover:-translate-y-[2px] transition-all ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
               >
                 ✕
               </button>
@@ -162,11 +169,18 @@ export function ColorWidget() {
         {/* Invert Toggle */}
         <div className="flex items-center justify-between">
           <label className="text-xs font-mono">Invert Colors</label>
-          <ToggleSwitch isOn={isInverted} onToggle={() => setIsInverted(!isInverted)} />
+          <ToggleSwitch 
+            isOn={isInverted} 
+            onToggle={() => setIsInverted(!isInverted)} 
+            disabled={isGenerating}
+          />
         </div>
         
         {/* Apply Button */}
-        <button className="w-full neo-brutal py-2 text-xs font-mono text-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5">
+        <button 
+          disabled={isGenerating}
+          className={`w-full neo-brutal py-2 text-xs font-mono text-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+        >
           <Check size={14} />
           Apply Colors
         </button>

@@ -3,11 +3,20 @@
 import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
+import { GenerationProgress } from "@/components/GenerationProgress";
 import { Waves, Hexagon, Wind, Play, Trash2 } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
-  const { algorithm, setAlgorithm, isGenerating, toggleGenerating, hasContent, clearCanvas } = useAlgorithm();
+  const { 
+    algorithm, 
+    setAlgorithm, 
+    generate, 
+    hasContent, 
+    clearCanvas, 
+    isGenerating,
+    completeGeneration 
+  } = useAlgorithm();
   
   return (
     <div className="relative w-full min-h-screen">
@@ -18,29 +27,37 @@ export default function Home() {
       <main className="pt-20 px-6 pb-16 flex flex-col items-center justify-center min-h-screen">
         <div className="w-full max-w-6xl mx-auto flex flex-col items-center gap-8">
           {/* Canvas as the Main Focus */}
-          <div className="card-neo aspect-video w-full bg-black p-0 overflow-hidden">
+          <div className="card-neo aspect-video w-full bg-black p-0 overflow-hidden relative">
             <P5Canvas 
               width={1200} 
               height={675} 
               className="w-full h-full"
+            />
+            
+            {/* Generation Progress Overlay */}
+            <GenerationProgress 
+              isGenerating={isGenerating} 
+              onComplete={completeGeneration}
+              duration={10000} // 10 seconds
             />
           </div>
           
           {/* Action Buttons */}
           <div className="flex gap-3">
             <button
-              onClick={toggleGenerating}
+              onClick={generate}
               disabled={isGenerating}
               className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-black text-white hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
             >
               <Play size={16} />
-              {isGenerating ? "Generating..." : "Generate Wallpaper"}
+              Generate Wallpaper
             </button>
             
             {hasContent && (
               <button
                 onClick={clearCanvas}
-                className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all"
+                disabled={isGenerating}
+                className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
                 <Trash2 size={16} />
                 Clear Canvas
@@ -52,11 +69,12 @@ export default function Home() {
           <div className="w-full flex flex-wrap items-center justify-center gap-3">
             <button 
               onClick={() => setAlgorithm('perlinNoise')}
+              disabled={isGenerating}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'perlinNoise' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
               <Waves size={14} className={`${algorithm === 'perlinNoise' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>PERLIN NOISE</span>
@@ -64,11 +82,12 @@ export default function Home() {
             
             <button 
               onClick={() => setAlgorithm('cellular')}
+              disabled={isGenerating}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'cellular' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
               <Hexagon size={14} className={`${algorithm === 'cellular' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>CELLULAR</span>
@@ -76,11 +95,12 @@ export default function Home() {
             
             <button 
               onClick={() => setAlgorithm('flowField')}
+              disabled={isGenerating}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'flowField' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2`}
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
               <Wind size={14} className={`${algorithm === 'flowField' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>FLOW FIELD</span>

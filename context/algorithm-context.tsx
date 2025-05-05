@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode, useCallback } from 'react'
 
 // Define algorithm types
 export type AlgorithmType = 'perlinNoise' | 'cellular' | 'flowField'
@@ -38,11 +38,13 @@ interface AlgorithmContextState {
   setIsInverted: (inverted: boolean) => void
   addCustomColor: (color: Omit<ColorOption, 'id' | 'isCustom'>) => void
   getCurrentColors: () => { background: string, foreground: string }
-  isAnimating: boolean
-  isGenerating: boolean
+  needsRedraw: boolean
   hasContent: boolean
-  toggleGenerating: () => void
+  isGenerating: boolean
+  generate: () => void
   clearCanvas: () => void
+  completeGeneration: () => void
+  triggerInitialization: () => void
 }
 
 // Create context with default values
@@ -81,81 +83,119 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   const [selectedColorId, setSelectedColorId] = useState("bw")
   const [isInverted, setIsInverted] = useState(false)
   
-  // Animation and generation state
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
+  // Generation/Drawing state
+  const [needsRedraw, setNeedsRedraw] = useState(false)
   const [hasContent, setHasContent] = useState(false)
-  
-  // Update parameters
-  const updateParams = (updates: Partial<AlgorithmParams>) => {
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [initSignal, setInitSignal] = useState(0); // State to trigger initialization
+
+  // Update parameters - also trigger redraw if content exists
+  const updateParams = useCallback((updates: Partial<AlgorithmParams>) => {
     setParams(prev => ({ ...prev, ...updates }))
-  }
-  
-  // Reset parameters
-  const resetParams = () => {
-    setParams(defaultParams)
-  }
-  
-  // Toggle generating state - now directly creates a static image
-  const toggleGenerating = () => {
-    if (!isGenerating) {
-      // Start generating
-      setIsGenerating(true)
-      
-      // Just a brief moment for rendering
-      setTimeout(() => {
-        setIsGenerating(false)
-        setHasContent(true)
-      }, 500)
+    if (hasContent) {
+      setInitSignal(s => s + 1); // Trigger re-initialization
+      setNeedsRedraw(true);
     }
-  }
+  }, [hasContent])
+  
+  // Reset parameters - also trigger redraw if content exists
+  const resetParams = useCallback(() => {
+    setParams(defaultParams)
+    if (hasContent) {
+      setInitSignal(s => s + 1); // Trigger re-initialization
+      setNeedsRedraw(true);
+    }
+  }, [hasContent])
+  
+  // Generate function - triggers initialization and redraw
+  const generate = useCallback(() => {
+    setIsGenerating(true);
+    setNeedsRedraw(true);
+    setInitSignal(s => s + 1); // Trigger re-initialization
+  }, [])
+  
+  // Function to mark generation as complete
+  const completeGeneration = useCallback(() => {
+    setIsGenerating(false);
+    setHasContent(true);
+  }, [])
   
   // Clear the canvas
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     setHasContent(false)
-  }
+    setNeedsRedraw(true) // Redraw the empty state
+  }, [])
+
+  // Function to explicitly trigger initialization (used by parameter changes)
+  const triggerInitialization = useCallback(() => {
+     setInitSignal(s => s + 1);
+  }, []);
   
   // Add custom color
-  const addCustomColor = (color: Omit<ColorOption, 'id' | 'isCustom'>) => {
+  const addCustomColor = useCallback((color: Omit<ColorOption, 'id' | 'isCustom'>) => {
     const newColor: ColorOption = {
       ...color,
       id: `custom_${Date.now()}`,
       isCustom: true
     }
-    
     setColorOptions(prev => [...prev, newColor])
     setSelectedColorId(newColor.id)
-  }
+    if (hasContent) {
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
+    }
+  }, [hasContent])
+
+  // Update selected color - trigger redraw
+  const updateSelectedColorId = useCallback((id: string) => {
+    setSelectedColorId(id);
+     if (hasContent) {
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
+    }
+  }, [hasContent]);
+
+  // Update inversion - trigger redraw
+  const updateIsInverted = useCallback((inverted: boolean) => {
+    setIsInverted(inverted);
+     if (hasContent) {
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
+    }
+  }, [hasContent]);
+
   
-  // Get current colors
-  const getCurrentColors = () => {
+  // Get current colors (memoized)
+  const getCurrentColors = useCallback(() => {
     const selectedColor = colorOptions.find(c => c.id === selectedColorId) || colorOptions[0]
     return {
       background: isInverted ? selectedColor.foreground : selectedColor.background,
       foreground: isInverted ? selectedColor.background : selectedColor.foreground
     }
-  }
+  }, [colorOptions, selectedColorId, isInverted])
   
   return (
     <AlgorithmContext.Provider 
       value={{
         algorithm,
-        setAlgorithm,
+        setAlgorithm, // Needs update to trigger re-init/redraw
         params,
         updateParams,
         resetParams,
         colorOptions,
         selectedColorId,
-        setSelectedColorId,
+        setSelectedColorId: updateSelectedColorId, // Use wrapped version
         isInverted,
-        setIsInverted,
+        setIsInverted: updateIsInverted, // Use wrapped version
         addCustomColor,
         getCurrentColors,
-        isAnimating,
-        isGenerating,
+        needsRedraw,
         hasContent,
-        toggleGenerating,
-        clearCanvas
+        isGenerating,
+        generate,
+        clearCanvas,
+        completeGeneration,
+        triggerInitialization // Pass down the trigger
       }}
     >
       {children}

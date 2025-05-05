@@ -15,14 +15,19 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
   const canvasRef = useRef<HTMLDivElement>(null);
   const sketchInstance = useRef<p5 | null>(null);
   
+  // Initialize function reference (scoped outside sketch for access in useEffect)
+  const initFunctionRef = useRef<(() => void) | null>(null);
+  
   // Get algorithm context data
   const { 
     algorithm, 
     params, 
     getCurrentColors,
-    isAnimating,
-    isGenerating,
-    hasContent
+    needsRedraw,
+    hasContent,
+    triggerInitialization, // Get the signal trigger
+    selectedColorId,
+    isGenerating
   } = useAlgorithm();
 
   // Define sketch as a callback that can be referenced later
@@ -39,7 +44,7 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
         noiseScale: params.noiseScale / 100 * 0.01, // 0-0.01 range
         speed: params.speed / 100 * 5,             // 0-5 range
         complexity: Math.floor(params.complexity / 100 * 10) + 1, // 1-11 range
-        density: Math.floor((params.density / 100) * 300) + 50,  // 50-350 range
+        density: Math.floor((params.density / 100) * 500) + 100,  // 100-600 range for higher density
       };
     };
     
@@ -71,33 +76,50 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       color: p5.Color;
       size: number;
       speed: number;
+      prevX: number;
+      prevY: number;
       
       constructor(particleColor: p5.Color, complexity: number) {
         this.x = p.random(p.width);
         this.y = p.random(p.height);
+        this.prevX = this.x;
+        this.prevY = this.y;
         this.color = particleColor;
-        this.size = p.random(1, 1 + (complexity / 30));
-        this.speed = p.random(0.8, 1.2);
+        // Adjust size for better visualization, closer to reference
+        this.size = p.random(2, 4 + (complexity / 15));
+        this.speed = p.random(0.8, 2.0); // Higher speed for more dynamic movement
       }
       
       update(moveSpeed: number, moveScale: number) {
-        // Get angle from Perlin noise
-        const angle = p.noise(this.x / moveScale, this.y / moveScale, time * 0.05) * p.TWO_PI * moveScale;
+        // Save previous position for trail
+        this.prevX = this.x;
+        this.prevY = this.y;
         
-        // Update position based on angle
+        // Get angle from Perlin noise, using formula similar to reference
+        const angle = p.noise(this.x / moveScale, this.y / moveScale, time * 0.1) * p.TWO_PI * moveScale;
+        
+        // Update position based on angle, similar to reference
         this.x += p.cos(angle) * moveSpeed * this.speed;
         this.y += p.sin(angle) * moveSpeed * this.speed;
         
         // Reset particle if it goes off screen or randomly (for variety)
+        // Low random chance for reset to allow longer trails to form
         if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.001) {
           this.x = p.random(p.width);
           this.y = p.random(p.height);
+          this.prevX = this.x;
+          this.prevY = this.y;
         }
       }
       
       display() {
-        p.fill(this.color);
-        p.ellipse(this.x, this.y, this.size, this.size);
+        // Use line for trail effect, similar to reference
+        const [r, g, b] = getRGB(this.color);
+        
+        // Draw line/trail between previous and current position
+        p.stroke(r, g, b, 150); // Semi-transparent for trail effect
+        p.strokeWeight(this.size);
+        p.line(this.prevX, this.prevY, this.x, this.y);
       }
     }
     
@@ -269,11 +291,15 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
           resetQuadtree();
           
           // Reinsert all particles into the new quadtree
-          if (algorithm === 'perlinNoise') {
+          if (algorithm === 'perlinNoise' && particles.length > 0) {
             for (const particle of particles) {
               quadtree.insert(particle);
             }
           }
+        }
+        // Trigger a redraw after resize if there's content
+        if(hasContent) {
+          p.redraw();
         }
       }
     };
@@ -284,18 +310,18 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       const containerHeight = canvasRef.current?.clientHeight || height;
       
       p.createCanvas(containerWidth, containerHeight);
-      p.noStroke(); // Add this for the Perlin algorithm
+      p.noStroke();
       
-      resetQuadtree();
+      // Initialize on setup
       initializeParticles();
       
-      // Initialize with no animation if isAnimating is false
-      if (!isAnimating) {
-        p.noLoop();
-      }
+      // Store reference to initialization function in the ref for access in useEffect
+      initFunctionRef.current = initializeParticles;
+      
+      p.noLoop(); // Start in noLoop mode
     };
-    
-    // Initialize particles based on the current algorithm with quadtree integration
+
+    // Initialize particles based on the current algorithm
     const initializeParticles = () => {
       const normalizedParams = getNormalizedParams();
       
@@ -309,27 +335,34 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
         const colors = getColors();
         const foreground = colors.foreground;
         
-        // Create derived colors for variety (simplified to just 3 colors)
+        // Create custom color palette similar to reference example
         const particleColors = [];
-        const [r, g, b] = getRGB(foreground);
         
-        // Reduce number of color variations for performance
-        particleColors.push(foreground);
-        particleColors.push(p.color(r * 0.8, g * 0.8, b * 0.8));
-        particleColors.push(p.color(r * 0.6, g * 0.6, b * 0.6));
+        // Add reference-like color variations if using default colors
+        // Create rich color variations inspired by the reference
+        if (selectedColorId === "bw" || selectedColorId === "wb") {
+          // Create a richer palette for default B&W themes
+          particleColors.push(p.color(88, 24, 69));    // deep purple
+          particleColors.push(p.color(144, 12, 63));   // burgundy
+          particleColors.push(p.color(199, 0, 57));    // crimson
+          particleColors.push(p.color(255, 87, 51));   // orange-red
+          particleColors.push(p.color(255, 195, 15));  // yellow
+        } else {
+          // Create variations based on the selected color
+          const [r, g, b] = getRGB(foreground);
+          particleColors.push(foreground);
+          particleColors.push(p.color(r * 0.9, g * 0.9, b * 1.1));
+          particleColors.push(p.color(r * 1.1, g * 0.8, b * 0.9));
+          particleColors.push(p.color(r * 0.85, g * 1.15, b * 0.9));
+          particleColors.push(p.color(r * 1.2, g * 1.1, b * 0.7));
+        }
         
-        // Create particles distributed across the canvas with quadtree optimization
-        // Use quadtree capacity to determine particle count - more optimal
-        const quadtreeLevels = 5 + Math.floor(normalizedParams.density / 20); // 5-10 levels based on density
-        const maxParticles = QUAD_CAP * (4 ** quadtreeLevels - 1) / 3; // Formula for complete quadtree
-        const particleCount = Math.min(
-          Math.floor(maxParticles * (normalizedParams.density / 100)), 
-          400
-        ); // Cap at 400 particles
+        // Create particles, using exact 500 like the reference for best performance/appearance balance
+        const particleCount = 500;
         
-        console.log(`Creating ${particleCount} particles with quadtree optimization`);
+        console.log(`Creating ${particleCount} particles for Perlin noise effect`);
         
-        // Create particles with the colors
+        // Create particles with the colors, similar to reference
         for (let i = 0; i < particleCount; i++) {
           const color = particleColors[Math.floor(p.random(particleColors.length))];
           const particle = new PerlinParticle(color, normalizedParams.complexity * 10);
@@ -354,6 +387,9 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
         particles = [new CellularAutomata(cellSize)];
         particles[0].randomize(normalizedParams.density);
       }
+      
+      // Make sure time is reset here if needed for consistent simulation start
+      time = 0;
     };
 
     // Draw function
@@ -361,26 +397,45 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       const normalizedParams = getNormalizedParams();
       const colors = getColors();
       
-      // Always start with a clean background
+      // Get background color
       const [r, g, b] = getRGB(colors.background);
-      p.background(r, g, b);
       
-      // Only draw content if hasContent is true
-      if (hasContent) {
-        // --- Internal Simulation for Static Image --- 
-        const simulationSteps = 75; // Simulate this many steps before drawing
+      // Begin logic for drawing
+      if (hasContent || isGenerating) {
+        // Special handling for Perlin noise algorithm
+        if (algorithm === 'perlinNoise') {
+          if (time === 0) {
+            // First frame, clear the background
+            p.background(r, g, b);
+          } else {
+            // For subsequent frames during generation, apply a transparent overlay
+            // This creates the trail effect
+            p.fill(r, g, b, isGenerating ? 10 : 20); // More transparent during generation
+            p.noStroke();
+            p.rect(0, 0, p.width, p.height);
+          }
+        } else {
+          // For other algorithms, always clear the background
+          p.background(r, g, b);
+        }
+        
+        // --- Simulation Steps ---
+        const simulationSteps = isGenerating ? 20 : 100; // Fewer steps during generation for smoother animation
         
         if (algorithm === 'perlinNoise') {
           resetQuadtree();
-          // Run simulation internally
+          
+          // Run simulation
           for (let step = 0; step < simulationSteps; step++) {
             time += normalizedParams.speed * 0.01; // Advance time
-            const moveSpeed = normalizedParams.speed * 0.2;
-            const moveScale = 500 + normalizedParams.noiseScale * 500;
+            // Adjust parameters to match reference
+            const moveSpeed = normalizedParams.speed * 0.4; // 0.4 in reference
+            const moveScale = 800; // 800 in reference, or use parameterized value if needed
             for (const particle of particles) {
-              particle.update(moveSpeed, moveScale); // Use existing update logic
+              particle.update(moveSpeed, moveScale);
             }
           }
+          
           // Insert final positions into quadtree after simulation
           for (const particle of particles) {
             quadtree!.insert(particle);
@@ -406,9 +461,7 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
             }
           }
         }
-        // --- End Internal Simulation ---
-
-        // --- Drawing Step (Based on final simulated state) ---
+        // --- Drawing Steps ---
         if (algorithm === 'perlinNoise') {
           const visibleArea = new Rectangle(p.width/2, p.height/2, p.width/2, p.height/2);
           const visibleParticles = quadtree!.query(visibleArea);
@@ -429,15 +482,18 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
           particles[0].display(colors.foreground);
           drawBorder(colors.foreground);
         }
-        // --- End Drawing Step ---
-        
       } else {
-        // Just draw the border for empty state
+        // Empty state - just clear the canvas
+        p.background(r, g, b);
         drawBorder(colors.foreground);
       }
       
-      // Always stop the loop after drawing. Redraws are triggered by useEffect
-      p.noLoop();
+      // Only loop during generation, otherwise stop after a single draw
+      if (isGenerating) {
+        if (!p.isLooping()) p.loop();
+      } else {
+        if (p.isLooping()) p.noLoop();
+      }
     };
     
     // Debug function to visualize the quadtree structure
@@ -489,11 +545,18 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
       p.rect(2, 2, p.width-4, p.height-4, 2);
     };
     
-    // Handle window resize
+    // Handle window resize (needs to be inside createSketch scope)
     p.windowResized = () => {
       handleResize();
     };
-  }, [algorithm, params, getCurrentColors, isAnimating, isGenerating, hasContent]);
+
+    // Expose methods to the sketch instance for external calls
+    (p as any).triggerInit = () => {
+      if(initFunctionRef.current) {
+        initFunctionRef.current();
+      }
+    };
+  }, [algorithm, params, getCurrentColors, hasContent, selectedColorId]);
 
   useEffect(() => {
     // Create a new p5 instance
@@ -510,41 +573,27 @@ export function P5Canvas({ width = 400, height = 300, className }: P5CanvasProps
     };
   }, [createSketch]);
 
-  // Reinitialize when algorithm changes
+  // Use the original useEffect to handle drawing logic
   useEffect(() => {
-    if (sketchInstance.current) {
-      // Remove and recreate the sketch to reinitialize with new algorithm
-      sketchInstance.current.remove();
-      sketchInstance.current = null;
-      
-      if (canvasRef.current) {
-        sketchInstance.current = new p5(createSketch, canvasRef.current);
-      }
-    }
-  }, [algorithm, createSketch]);
-
-  // Add an effect to handle animation state changes
-  useEffect(() => {
-    if (sketchInstance.current) {
-      if (isAnimating) {
-        sketchInstance.current.loop();
-      } else {
-        // When stopping animation, ensure we render one final frame
-        if (!sketchInstance.current.isLooping()) {
-          sketchInstance.current.redraw();
-        }
-        sketchInstance.current.noLoop();
-      }
-    }
-  }, [isAnimating]);
-
-  // Add effect to redraw when parameters change while canvas has content
-  useEffect(() => {
-    if (hasContent && sketchInstance.current) {
-      // Force a redraw with new parameters
+    if (!canvasRef.current || !sketchInstance.current) return;
+    
+    if (needsRedraw) {
+      console.log("Redrawing...");
       sketchInstance.current.redraw();
     }
-  }, [hasContent, params, algorithm, getCurrentColors]);
+  }, [needsRedraw]);
+
+  // Use a separate useEffect to handle initialization based on the init signal
+  useEffect(() => {
+    if (!sketchInstance.current || !initFunctionRef.current) return;
+    
+    console.log("Initializing particles from trigger...");
+    initFunctionRef.current();
+    sketchInstance.current.redraw();
+  }, [triggerInitialization]);
+
+  // We don't need a separate interval for animation since we're using p5's built-in loop
+  // during the generation phase. The sketch will automatically animate itself.
 
   return <div ref={canvasRef} className={`w-full h-full ${className}`} />;
 }

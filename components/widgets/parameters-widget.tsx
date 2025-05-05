@@ -10,7 +10,8 @@ export function ParametersWidget() {
   const { 
     params, 
     updateParams, 
-    resetParams 
+    resetParams,
+    isGenerating
   } = useAlgorithm();
   
   // Handle slider changes
@@ -33,13 +34,16 @@ export function ParametersWidget() {
       <div className="p-4 space-y-5">
         {/* Info message */}
         <p className="text-xs opacity-70 font-mono bg-black/5 dark:bg-white/5 p-2 rounded">
-          Adjust the parameters to customize your wallpaper. Click the Generate button to create a static image based on your settings.
+          {isGenerating 
+            ? "Generation in progress... Please wait."
+            : "Adjust the parameters to customize your wallpaper. Click the Generate button to create a static image based on your settings."
+          }
         </p>
         
         {/* Visualization */}
         <div className="rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] flex items-center justify-center border border-black/10 dark:border-white/10">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-black/10 to-black/20 dark:from-white/10 dark:to-white/20 flex items-center justify-center">
-            <Settings size={24} className="text-black/20 dark:text-white/20 animate-[spin_4s_linear_infinite]" />
+            <Settings size={24} className={`text-black/20 dark:text-white/20 ${isGenerating ? 'animate-[spin_1s_linear_infinite]' : 'animate-[spin_4s_linear_infinite]'}`} />
           </div>
         </div>
         
@@ -55,7 +59,8 @@ export function ParametersWidget() {
             min={0}
             max={100}
             step={1}
-            className="[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white"
+            disabled={isGenerating}
+            className={`[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white ${isGenerating ? 'opacity-50' : ''}`}
           />
         </div>
         
@@ -71,7 +76,8 @@ export function ParametersWidget() {
             min={0}
             max={100}
             step={1}
-            className="[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white"
+            disabled={isGenerating}
+            className={`[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white ${isGenerating ? 'opacity-50' : ''}`}
           />
         </div>
         
@@ -87,7 +93,8 @@ export function ParametersWidget() {
             min={0}
             max={100}
             step={1}
-            className="[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white"
+            disabled={isGenerating}
+            className={`[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white ${isGenerating ? 'opacity-50' : ''}`}
           />
         </div>
         
@@ -103,7 +110,8 @@ export function ParametersWidget() {
             min={0}
             max={100}
             step={1}
-            className="[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white"
+            disabled={isGenerating}
+            className={`[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white ${isGenerating ? 'opacity-50' : ''}`}
           />
         </div>
         
@@ -119,7 +127,8 @@ export function ParametersWidget() {
               </div>
               <ToggleSwitch 
                 isOn={params.autoAdjust} 
-                onToggle={() => handleToggleChange('autoAdjust', !params.autoAdjust)} 
+                onToggle={() => handleToggleChange('autoAdjust', !params.autoAdjust)}
+                disabled={isGenerating}
               />
             </div>
             
@@ -130,7 +139,8 @@ export function ParametersWidget() {
               </div>
               <ToggleSwitch 
                 isOn={params.randomizeOnLoad} 
-                onToggle={() => handleToggleChange('randomizeOnLoad', !params.randomizeOnLoad)} 
+                onToggle={() => handleToggleChange('randomizeOnLoad', !params.randomizeOnLoad)}
+                disabled={isGenerating}
               />
             </div>
           </div>
@@ -139,7 +149,8 @@ export function ParametersWidget() {
         {/* Reset Button */}
         <button 
           onClick={resetParams}
-          className="w-full neo-brutal py-2 px-3 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5"
+          disabled={isGenerating}
+          className={`w-full neo-brutal py-2 px-3 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
         >
           <RotateCcw size={14} />
           <span>Reset Parameters</span>
