@@ -99,62 +99,35 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       y: number;
       color: any;
       size: number;
-      speed: number;
-      prevX: number;
-      prevY: number;
       
-      constructor(particleColor: any, complexity: number) {
+      constructor(particleColor: any) {
         this.x = p.random(p.width);
         this.y = p.random(p.height);
-        this.prevX = this.x;
-        this.prevY = this.y;
         this.color = particleColor;
-        // Increase size for more visible trails
-        this.size = p.random(2.5, 5 + (complexity / 10));
-        this.speed = p.random(1.2, 2.5); // Higher speed for more dynamic movement
+        this.size = 2;  // In reference, size is fixed at 2
       }
       
       update(moveSpeed: number, moveScale: number) {
-        // Save previous position for trail
-        this.prevX = this.x;
-        this.prevY = this.y;
+        // Get angle from Perlin noise, using formula from reference
+        // Original comment from reference: "I never understood why end by multiplying by moveScale"
+        const angle = p.noise(this.x / moveScale, this.y / moveScale) * p.TWO_PI * moveScale;
         
-        // Get angle from Perlin noise, using formula similar to reference
-        const angle = p.noise(this.x / moveScale, this.y / moveScale, time * 0.1) * p.TWO_PI * moveScale;
-        
-        // Update position based on angle, similar to reference
-        this.x += p.cos(angle) * moveSpeed * this.speed;
-        this.y += p.sin(angle) * moveSpeed * this.speed;
+        // Update position based on angle, exactly like reference
+        this.x += p.cos(angle) * moveSpeed;
+        this.y += p.sin(angle) * moveSpeed;
         
         // Reset particle if it goes off screen or randomly (for variety)
-        // Very low random chance for reset to allow longer trails to form
-        if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.0005) {
+        if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.001) {
           this.x = p.random(p.width);
           this.y = p.random(p.height);
-          this.prevX = this.x;
-          this.prevY = this.y;
         }
       }
       
       display() {
-        // Calculate distance moved
-        const distance = p.dist(this.prevX, this.prevY, this.x, this.y);
-        
-        // Only draw if there's meaningful movement
-        if (distance > 0.1) {
-          // Use line for trail effect, similar to reference
-          const [r, g, b] = getRGB(this.color);
-          
-          // Draw line/trail between previous and current position
-          p.stroke(r, g, b, 180); // More opaque
-          p.strokeWeight(this.size);
-          p.line(this.prevX, this.prevY, this.x, this.y);
-          
-          // Optionally add a small endpoint dot for more definition
-          p.noStroke();
-          p.fill(r, g, b, 220);
-          p.ellipse(this.x, this.y, this.size * 0.5, this.size * 0.5);
-        }
+        // Draw simple ellipse/point like in the reference
+        p.fill(this.color);
+        p.noStroke();
+        p.ellipse(this.x, this.y, this.size, this.size);
       }
     }
     
@@ -366,25 +339,26 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       resetQuadtree();
       
       if (algorithm === 'perlinNoise') {
-        // Get the base colors for particles
-        const colors = getColors();
-        const foreground = colors.foreground;
+        // Reference uses 500 particles, match exactly
+        const particleCount = 500;
         
-        // Create custom color palette similar to reference example
+        // Create custom color palette like in reference
         const particleColors = [];
         
-        // Add reference-like color variations if using default colors
-        // Create rich color variations inspired by the reference
         if (selectedColorId === "bw" || selectedColorId === "wb") {
-          // Create a richer palette for default B&W themes
-          particleColors.push(p.color(88, 24, 69));    // deep purple
-          particleColors.push(p.color(144, 12, 63));   // burgundy
-          particleColors.push(p.color(199, 0, 57));    // crimson
-          particleColors.push(p.color(255, 87, 51));   // orange-red
-          particleColors.push(p.color(255, 195, 15));  // yellow
+          // Use exact hex colors from reference
+          particleColors.push(p.color("#581845")); // deep purple
+          particleColors.push(p.color("#900C3F")); // burgundy
+          particleColors.push(p.color("#C70039")); // crimson
+          particleColors.push(p.color("#FF5733")); // orange-red
+          particleColors.push(p.color("#FFC30F")); // yellow
         } else {
-          // Create variations based on the selected color
+          // For custom colors, still use 5 variants for consistency
+          const colors = getColors();
+          const foreground = colors.foreground;
           const [r, g, b] = getRGB(foreground);
+          
+          // Create 5 variations based on the foreground color
           particleColors.push(foreground);
           particleColors.push(p.color(r * 0.9, g * 0.9, b * 1.1));
           particleColors.push(p.color(r * 1.1, g * 0.8, b * 0.9));
@@ -392,15 +366,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           particleColors.push(p.color(r * 1.2, g * 1.1, b * 0.7));
         }
         
-        // Create particles, increased from 500 to 600 for denser trails
-        const particleCount = 600;
-        
         console.log(`Creating ${particleCount} particles for Perlin noise effect`);
         
         // Create particles with the colors, similar to reference
         for (let i = 0; i < particleCount; i++) {
           const color = particleColors[Math.floor(p.random(particleColors.length))];
-          const particle = new PerlinParticle(color, normalizedParams.complexity * 10);
+          const particle = new PerlinParticle(color);
           particles.push(particle);
         }
         
@@ -437,45 +408,49 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       
       // Begin logic for drawing
       if (hasContent || isGenerating) {
-        // Special handling for Perlin noise algorithm
         if (algorithm === 'perlinNoise') {
+          // Only set background once at the beginning, like in reference
           if (time === 0) {
-            // Only clear on the very first frame
+            // In reference, a deep purple background is used "#1a0633"
+            // But we'll use the user's background color for consistency
             p.background(r, g, b);
-          } else {
-            // Apply a transparent overlay - use even more transparency for better trails
-            p.fill(r, g, b, 6); // Very transparent for longer, more vibrant trails
-            p.noStroke();
-            p.rect(0, 0, p.width, p.height);
           }
-        } else {
-          // For other algorithms, always clear the background
-          p.background(r, g, b);
-        }
-        
-        // --- Simulation Steps ---
-        // Adjust step count based on generation state
-        const simulationSteps = isGenerating ? 15 : 8; // Faster animation during generation, slower after
-        
-        if (algorithm === 'perlinNoise') {
+          // No background refresh during animation to allow trails to build up
+          // This is key to matching the reference
+          
+          // Reset quadtree for efficiency
           resetQuadtree();
           
-          // Run simulation
-          for (let step = 0; step < simulationSteps; step++) {
-            time += normalizedParams.speed * 0.01; // Advance time
-            // Adjust parameters to match reference
-            const moveSpeed = normalizedParams.speed * 0.4; // 0.4 in reference
-            const moveScale = 800; // 800 in reference, or use parameterized value if needed
-            for (const particle of particles) {
-              particle.update(moveSpeed, moveScale);
-            }
+          // Reference moveSpeed is 0.4, moveScale is 800 - exact match
+          const moveSpeed = 0.4; // Fixed value from reference
+          const moveScale = 800; // Fixed value from reference
+          
+          // Update the time factor based on speed parameter for user control
+          if (isGenerating) {
+            // During generation, use speed parameter to control animation speed
+            time += normalizedParams.speed * 0.01;
+          } else {
+            // After generation, run at a more gentle pace
+            time += Math.min(normalizedParams.speed, 2) * 0.005;
           }
           
-          // Insert final positions into quadtree after simulation
+          // Update all particles - exactly like the reference implementation
           for (const particle of particles) {
+            particle.update(moveSpeed, moveScale);
+            particle.display();
             quadtree!.insert(particle);
           }
+          
+          // Draw border after particles
+          drawBorder(colors.foreground);
         } else if (algorithm === 'flowField') {
+          // For other algorithms, always clear the background
+          p.background(r, g, b);
+          
+          // --- Simulation Steps ---
+          // Use a fixed number of steps
+          const simulationSteps = isGenerating ? 15 : 8;
+          
           // Run simulation internally
           for (let step = 0; step < simulationSteps; step++) {
             time += normalizedParams.speed * 0.01; // Advance time
@@ -483,38 +458,33 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
               particle.update(normalizedParams.noiseScale, normalizedParams.speed);
               // Update prevPos only on the last step for correct line drawing
               if (step === simulationSteps - 1) {
-                 particle.prevPos = particle.pos.copy(); // Capture final position as prev for display
+                 particle.prevPos = particle.pos.copy();
               }
             }
           }
+          
+          // Draw flow field particles
+          for (const particle of particles) {
+            const [fr, fg, fb] = getRGB(particle.color);
+            p.stroke(fr, fg, fb, 180);
+            p.strokeWeight(particle.strokeWeight * 1.5);
+            p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
+          }
+          drawBorder(colors.foreground);
         } else if (algorithm === 'cellular' && particles.length > 0) {
-          // Run simulation internally
+          // Clear background for cellular automata
+          p.background(r, g, b);
+          
+          // Run cellular automata simulation steps
+          const simulationSteps = isGenerating ? 15 : 8;
           for (let step = 0; step < simulationSteps; step++) {
             // Only update cellular every few sim steps based on speed param for visual stability
             if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
                particles[0].update(normalizedParams.complexity);
             }
           }
-        }
-        
-        // --- Drawing Steps ---
-        if (algorithm === 'perlinNoise') {
-          const visibleArea = new Rectangle(p.width/2, p.height/2, p.width/2, p.height/2);
-          const visibleParticles = quadtree!.query(visibleArea);
-          for (const particle of visibleParticles) {
-            particle.display();
-          }
-          drawBorder(colors.foreground);
-        } else if (algorithm === 'flowField') {
-          for (const particle of particles) {
-            // For static, draw lines thicker and less transparent
-            const [fr, fg, fb] = getRGB(particle.color);
-            p.stroke(fr, fg, fb, 180); // More opaque
-            p.strokeWeight(particle.strokeWeight * 1.5); // Slightly thicker
-            p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
-          }
-          drawBorder(colors.foreground);
-        } else if (algorithm === 'cellular' && particles.length > 0) {
+          
+          // Display cellular automata
           particles[0].display(colors.foreground);
           drawBorder(colors.foreground);
         }
@@ -524,29 +494,26 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         drawBorder(colors.foreground);
       }
       
-      // Control animation loop based on algorithm and state
-      if (isGenerating) {
-        // Always loop during generation
+      // Control animation loop
+      if (isGenerating || (algorithm === 'perlinNoise' && hasContent)) {
+        // Always loop for Perlin Noise (during and after generation)
         if (!p.isLooping()) p.loop();
-        p.frameRate(24); // Faster animation during generation
-      } else if (algorithm === 'perlinNoise' && hasContent) {
-        // For perlin noise, we want to keep drawing even after generation to show nice trails
-        // Keep looping for nice trail effects but at a slower rate
-        if (!p.isLooping()) p.loop();
-        p.frameRate(12); // Slower frame rate for subtle animation after generation
+        // Use appropriate frame rate
+        p.frameRate(isGenerating ? 30 : 20);
       } else {
         // For other algorithms, stop animation after generating
         if (p.isLooping()) p.noLoop();
       }
     };
     
-    // Draw border frame
+    // Draw a border around the canvas
     const drawBorder = (color: any) => {
-      p.noFill();
       const [r, g, b] = getRGB(color);
-      p.stroke(r, g, b, 30);
+      p.stroke(r, g, b, 60);
       p.strokeWeight(1);
-      p.rect(2, 2, p.width-4, p.height-4, 2);
+      p.noFill();
+      p.rect(0, 0, p.width, p.height);
+      p.noStroke();
     };
     
     // Handle window resize
@@ -597,7 +564,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     sketchInstance.current.redraw();
   }, [triggerInitialization]);
 
-  return <div ref={canvasRef} className={`w-full h-full ${className}`} />;
+  return (
+    <div ref={canvasRef} className={className} style={{ width: '100%', height: '100%' }}>
+      {!p5 && <div className="flex items-center justify-center h-full">Loading P5.js...</div>}
+    </div>
+  );
 };
 
 export default P5CanvasImpl; 
