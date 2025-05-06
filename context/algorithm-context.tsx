@@ -13,6 +13,7 @@ export interface AlgorithmParams {
   density: number
   autoAdjust: boolean
   randomizeOnLoad: boolean
+  transparentBackground?: boolean
 }
 
 // Define the color options
@@ -20,6 +21,7 @@ export interface ColorOption {
   id: string
   background: string
   foreground: string
+  foregroundColors?: string[]
   label: string
   isCustom?: boolean
 }
@@ -37,7 +39,9 @@ interface AlgorithmContextState {
   isInverted: boolean
   setIsInverted: (inverted: boolean) => void
   addCustomColor: (color: Omit<ColorOption, 'id' | 'isCustom'>) => void
-  getCurrentColors: () => { background: string, foreground: string }
+  updateCustomColor: (id: string, color: Omit<ColorOption, 'id' | 'isCustom'>) => void
+  deleteCustomColor: (id: string) => void
+  getCurrentColors: () => { background: string, foreground: string, foregroundColors?: string[] }
   needsRedraw: boolean
   hasContent: boolean
   isGenerating: boolean
@@ -57,7 +61,8 @@ const defaultParams: AlgorithmParams = {
   complexity: 70,
   density: 60,
   autoAdjust: true,
-  randomizeOnLoad: false
+  randomizeOnLoad: false,
+  transparentBackground: false
 }
 
 // Default color options
@@ -68,6 +73,20 @@ const defaultColorOptions: ColorOption[] = [
   { id: "blue", background: "#0F172A", foreground: "#E2E8F0", label: "Blue" },
   { id: "purple", background: "#2E1065", foreground: "#DDD6FE", label: "Purple" },
   { id: "red", background: "#4C0519", foreground: "#FED7E2", label: "Red" },
+  { 
+    id: "rainbow", 
+    background: "#000000", 
+    foreground: "#FF0000", 
+    foregroundColors: ["#FF0000", "#FF8800", "#FFFF00", "#00FF00", "#0088FF"], 
+    label: "Rainbow" 
+  },
+  { 
+    id: "sunset", 
+    background: "#1A0633", 
+    foreground: "#FF5733", 
+    foregroundColors: ["#581845", "#900C3F", "#C70039", "#FF5733", "#FFC30F"], 
+    label: "Sunset" 
+  }
 ]
 
 // Provider component
@@ -146,6 +165,34 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     }
   }, [hasContent])
 
+  // Update an existing custom color
+  const updateCustomColor = useCallback((id: string, color: Omit<ColorOption, 'id' | 'isCustom'>) => {
+    setColorOptions(prev => prev.map(c => 
+      c.id === id 
+        ? { ...c, ...color, isCustom: true } 
+        : c
+    ));
+    if (hasContent) {
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
+    }
+  }, [hasContent]);
+
+  // Delete a custom color
+  const deleteCustomColor = useCallback((id: string) => {
+    setColorOptions(prev => prev.filter(c => c.id !== id));
+    
+    // If we're deleting the selected color, select the first one instead
+    if (selectedColorId === id) {
+      setSelectedColorId(defaultColorOptions[0].id);
+    }
+    
+    if (hasContent) {
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
+    }
+  }, [hasContent, selectedColorId]);
+
   // Update selected color - trigger redraw
   const updateSelectedColorId = useCallback((id: string) => {
     setSelectedColorId(id);
@@ -170,7 +217,10 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     const selectedColor = colorOptions.find(c => c.id === selectedColorId) || colorOptions[0]
     return {
       background: isInverted ? selectedColor.foreground : selectedColor.background,
-      foreground: isInverted ? selectedColor.background : selectedColor.foreground
+      foreground: isInverted ? selectedColor.background : selectedColor.foreground,
+      foregroundColors: selectedColor.foregroundColors && isInverted
+        ? [...selectedColor.foregroundColors].reverse()
+        : selectedColor.foregroundColors
     }
   }, [colorOptions, selectedColorId, isInverted])
   
@@ -188,6 +238,8 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
         isInverted,
         setIsInverted: updateIsInverted, // Use wrapped version
         addCustomColor,
+        updateCustomColor,
+        deleteCustomColor,
         getCurrentColors,
         needsRedraw,
         hasContent,

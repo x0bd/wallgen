@@ -77,7 +77,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       const colors = getCurrentColors();
       return {
         background: p.color(colors.background),
-        foreground: p.color(colors.foreground)
+        foreground: p.color(colors.foreground),
+        foregroundColors: colors.foregroundColors?.map(color => p.color(color))
       };
     };
     
@@ -344,8 +345,14 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // Create custom color palette like in reference
         const particleColors = [];
+        const colors = getColors();
         
-        if (selectedColorId === "bw" || selectedColorId === "wb") {
+        if (colors.foregroundColors && colors.foregroundColors.length > 0) {
+          // Use the provided foreground colors
+          colors.foregroundColors.forEach(color => {
+            particleColors.push(p.color(color));
+          });
+        } else if (selectedColorId === "bw" || selectedColorId === "wb") {
           // Use exact hex colors from reference
           particleColors.push(p.color("#581845")); // deep purple
           particleColors.push(p.color("#900C3F")); // burgundy
@@ -354,7 +361,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           particleColors.push(p.color("#FFC30F")); // yellow
         } else {
           // For custom colors, still use 5 variants for consistency
-          const colors = getColors();
           const foreground = colors.foreground;
           const [r, g, b] = getRGB(foreground);
           
@@ -413,10 +419,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           if (time === 0) {
             // In reference, a deep purple background is used "#1a0633"
             // But we'll use the user's background color for consistency
-            p.background(r, g, b);
+            if (!params.transparentBackground) {
+              p.background(r, g, b);
+            } else {
+              // For transparent background, use clear with low alpha to create trails
+              p.clear();
+            }
+          } else if (params.transparentBackground) {
+            // For transparent mode, we need to clear with very low alpha
+            // to create the trails effect while maintaining transparency
+            p.background(0, 0, 0, 3); // Nearly transparent black for the fade effect
           }
-          // No background refresh during animation to allow trails to build up
-          // This is key to matching the reference
+          // No background refresh for regular mode during animation to allow trails to build up
           
           // Reset quadtree for efficiency
           resetQuadtree();
