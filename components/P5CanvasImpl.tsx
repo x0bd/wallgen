@@ -40,6 +40,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     isSavingRef.current = isSaving;
   }, [isSaving]);
 
+  // Replace the dynamic viewport sizing with fixed dimensions
+  const MASTER_CANVAS_SIZE = 4000; // High-resolution master canvas size
+  const VIEWPORT_WIDTH = 1600;
+  const VIEWPORT_HEIGHT = 900;
+  const [viewportPosition, setViewportPosition] = useState({ x: MASTER_CANVAS_SIZE/2, y: MASTER_CANVAS_SIZE/2 }); // Center of canvas
+  const [viewportSize, setViewportSize] = useState({ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT });
+
   // Load p5.js dynamically on the client side only
   useEffect(() => {
     let isMounted = true;
@@ -62,6 +69,23 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       isMounted = false;
     };
   }, []);
+
+  // Update the first useEffect to use fixed viewport size
+  useEffect(() => {
+    if (canvasRef.current) {
+      // Set fixed viewport size instead of measuring container
+      setViewportSize({
+        width: VIEWPORT_WIDTH,
+        height: VIEWPORT_HEIGHT
+      });
+      
+      // Calculate initial viewport center (centered on master canvas)
+      setViewportPosition({
+        x: MASTER_CANVAS_SIZE / 2,
+        y: MASTER_CANVAS_SIZE / 2
+      });
+    }
+  }, [canvasRef.current]); // Only run when canvasRef changes
 
   // Define sketch as a callback that can be referenced later
   const createSketch = useCallback((p: any) => {
@@ -122,7 +146,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.x = p.random(p.width);
         this.y = p.random(p.height);
         this.color = particleColor;
-        this.size = 2;  // In reference, size is fixed at 2
+        this.size = 3; // Slightly larger than reference (2) for better visibility on large canvas
       }
       
       update(moveSpeed: number, moveScale: number) {
@@ -135,6 +159,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.y += p.sin(angle) * moveSpeed;
         
         // Reset particle if it goes off screen or randomly (for variety)
+        // Use exact same probability as reference (0.001)
         if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.001) {
           this.x = p.random(p.width);
           this.y = p.random(p.height);
@@ -165,12 +190,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.prevPos = this.pos.copy();
         this.vel = p.createVector(0, 0);
         this.acc = p.createVector(0, 0);
-        this.maxSpeed = p.random(2, 4);
+        this.maxSpeed = p.random(2, 8); // Increased for larger canvas
         
         const colors = getColors();
         this.color = colors.foreground;
         this.alpha = p.random(20, 100);
-        this.strokeWeight = p.random(0.1, 1.5);
+        this.strokeWeight = p.random(2, 8); // Increased stroke weight for better visibility
       }
       
       update(noiseScale: number, speed: number) {
@@ -332,17 +357,38 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     
     // Setup function
     p.setup = () => {
-      const containerWidth = canvasRef.current?.clientWidth || width;
-      const containerHeight = canvasRef.current?.clientHeight || height;
+      // Create a high-resolution master canvas
+      const canvas = p.createCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE);
       
-      p.createCanvas(containerWidth, containerHeight);
-      p.noStroke();
+      // Position the canvas within its container
+      canvas.parent(canvasRef.current);
       
-      // Initialize on setup
+      // Apply CSS to only show the viewport portion
+      const canvasElement = canvasRef.current?.querySelector('canvas');
+      if (canvasElement) {
+        // Simpler approach - scale and position the canvas relative to viewport
+        canvasElement.style.position = 'absolute';
+        canvasElement.style.transformOrigin = 'top left';
+        canvasElement.style.transform = `scale(${VIEWPORT_WIDTH / MASTER_CANVAS_SIZE})`;
+        canvasElement.style.left = '0';
+        canvasElement.style.top = '0';
+        
+        // Make the container show only the visible portion
+        if (canvasRef.current) {
+          canvasRef.current.style.overflow = 'hidden';
+          canvasRef.current.style.position = 'relative';
+          canvasRef.current.style.width = `${VIEWPORT_WIDTH}px`;
+          canvasRef.current.style.height = `${VIEWPORT_HEIGHT}px`;
+          canvasRef.current.style.boxShadow = '0 0 20px rgba(0,0,0,0.2)'; // Add subtle shadow
+          canvasRef.current.style.borderRadius = '4px'; // Slightly rounded corners
+        }
+      }
+      
+      // Set background based on colors
+      p.background(getCurrentColors().background);
+      
+      // Initialize particles for the algorithm
       initializeParticles();
-      
-      // Store reference to initialization function in the ref for access in useEffect
-      initFunctionRef.current = initializeParticles;
       
       // Start the animation loop by default
       p.loop();
@@ -400,10 +446,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       resetQuadtree();
       
       if (algorithm === 'perlinNoise') {
-        // Reference uses 500 particles, match exactly
-        const particleCount = 500;
+        // Use more particles than reference but not too many
+        const particleCount = 800; // Compromise between reference (500) and density needs
         
-        // Create custom color palette like in reference
+        // Create color palette exactly like reference
         const particleColors = [];
         
         if (colors.foregroundColors && colors.foregroundColors.length > 0) {
@@ -431,7 +477,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           particleColors.push(p.color(r * 1.2, g * 1.1, b * 0.7));
         }
         
-        console.log(`Creating ${particleCount} particles for Perlin noise effect`);
+        console.log(`Creating ${particleCount} particles for Perlin noise (reference: 500)`);
         
         // Create particles with the colors, similar to reference
         for (let i = 0; i < particleCount; i++) {
@@ -446,15 +492,15 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           time = p.random(0, 1000);
         }
       } else if (algorithm === 'flowField') {
-        // Original flow field implementation without quadtree
-        const particleCount = Math.min(100, Math.floor(normalizedParams.density * 0.3));
+        // Increase particle count for flow field on larger canvas
+        const particleCount = Math.min(1000, Math.floor(normalizedParams.density * 3));
         for (let i = 0; i < particleCount; i++) {
           const particle = new FlowFieldParticle();
           particles.push(particle);
         }
       } else if (algorithm === 'cellular') {
-        // Original cellular automata implementation
-        const cellSize = Math.floor(16 - (normalizedParams.complexity * 0.5));
+        // Adjust cell size for the larger canvas
+        const cellSize = Math.floor(64 - (normalizedParams.complexity * 2)); // Larger cells for 4000x4000
         particles = [new CellularAutomata(cellSize)];
         particles[0].randomize(normalizedParams.density);
       }
@@ -476,34 +522,35 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Only set background once at the beginning, like in reference
         if (time === 0) {
           // In reference, a deep purple background is used "#1a0633"
-          // But we'll use the user's background color for consistency
-          if (!params.transparentBackground) {
-            p.background(r, g, b);
+          if (selectedColorId === "bw" || selectedColorId === "wb") {
+            p.background("#1a0633"); // Use exact background from reference
+          } else if (!params.transparentBackground) {
+            p.background(r, g, b); // Use user-selected background
           } else {
-            // For transparent background, use clear with low alpha to create trails
+            // For transparent background, use clear
             p.clear();
           }
         } else if (params.transparentBackground) {
           // For transparent mode, we need to clear with very low alpha
           // to create the trails effect while maintaining transparency
-          p.background(0, 0, 0, 3); // Nearly transparent black for the fade effect
+          p.background(0, 0, 0, 3); // Use reference-similar alpha
         }
         // No background refresh for regular mode during animation to allow trails to build up
         
         // Reset quadtree for efficiency
         resetQuadtree();
         
-        // Reference moveSpeed is 0.4, moveScale is 800 - exact match
-        const moveSpeed = 0.4; // Fixed value from reference
-        const moveScale = 800; // Fixed value from reference
+        // Use values closer to the reference with slight adjustment for larger canvas
+        const moveSpeed = 0.5; // Just slightly faster than reference (0.4)
+        const moveScale = 800; // Exact reference value
         
         // Update the time factor based on speed parameter for user control
         if (currentIsSaving) {
-          // During saving, possibly speed up animation for better effect
+          // During saving, slightly speed up animation 
           time += normalizedParams.speed * 0.02;
         } else {
           // Normal continuous animation mode
-          time += normalizedParams.speed * 0.01;
+          time += normalizedParams.speed * 0.01; // Original speed
         }
         
         // Update all particles - exactly like the reference implementation
@@ -578,7 +625,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     
     // Handle window resize
     p.windowResized = () => {
-      handleResize();
+      // Keep the fixed canvas size - don't adjust dimensions on window resize
+      
+      // Still update container styles to maintain positioning
+      if (canvasRef.current) {
+        const canvasElement = canvasRef.current?.querySelector('canvas');
+        if (canvasElement) {
+          canvasElement.style.transformOrigin = 'top left';
+          canvasElement.style.transform = `scale(${VIEWPORT_WIDTH / MASTER_CANVAS_SIZE})`;
+        }
+      }
     };
 
     // Expose methods to the sketch instance for external calls
@@ -641,355 +697,121 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         height, 
         format, 
         filename, 
-        algorithm, 
+        algorithm,
         includeSourceCode,
-        addBorder = true,
         highQuality = true 
       } = event.detail;
       
-      if (sketchInstance.current) {
-        console.log(`Exporting canvas at ${width}x${height} as ${format}`);
+      if (sketchInstance.current && sketchInstance.current.canvas) {
+        console.log(`Exporting from high-res canvas: ${width}x${height} as ${format}`);
         
-        // Store original canvas dimensions to restore later
-        const originalWidth = sketchInstance.current.width;
-        const originalHeight = sketchInstance.current.height;
-        const originalHTML = canvasRef.current?.innerHTML || '';
+        // Calculate the visible portion of the canvas based on the scale
+        const canvasScale = VIEWPORT_WIDTH / MASTER_CANVAS_SIZE;
         
-        // Get current colors before creating the offscreen sketch
-        const currentColors = getCurrentColors();
+        // Calculate the visible portion in the high-res canvas coordinates
+        const visibleWidth = Math.min(VIEWPORT_WIDTH / canvasScale, MASTER_CANVAS_SIZE);
+        const visibleHeight = Math.min(VIEWPORT_HEIGHT / canvasScale, MASTER_CANVAS_SIZE);
         
-        // Get original window scroll position
-        const scrollX = window.scrollX;
-        const scrollY = window.scrollY;
+        // Central position for cropping is the center of the canvas
+        const centerX = MASTER_CANVAS_SIZE / 2;
+        const centerY = MASTER_CANVAS_SIZE / 2;
         
-        // Create an offscreen container for high-res rendering
-        const offscreenContainer = document.createElement('div');
-        offscreenContainer.style.position = 'absolute';
-        offscreenContainer.style.left = '-9999px';
-        offscreenContainer.style.top = '-9999px';
-        offscreenContainer.style.width = `${width}px`;
-        offscreenContainer.style.height = `${height}px`;
-        document.body.appendChild(offscreenContainer);
+        // Calculate crop dimensions to maintain aspect ratio of the target export
+        const cropWidth = Math.min(width, visibleWidth);
+        const cropHeight = Math.min(height, visibleHeight);
         
-        // Pause the main sketch
-        if (sketchInstance.current.isLooping()) {
-          sketchInstance.current.noLoop();
-        }
+        // Calculate the crop position (centered)
+        const cropX = Math.max(0, centerX - cropWidth / 2);
+        const cropY = Math.max(0, centerY - cropHeight / 2);
         
-        // Create a new high-resolution sketch
-        const highResSketch = new p5((p: any) => {
-          let ready = false;
+        // Make sure we're not trying to crop outside the canvas
+        const actualWidth = Math.min(cropWidth, MASTER_CANVAS_SIZE - cropX);
+        const actualHeight = Math.min(cropHeight, MASTER_CANVAS_SIZE - cropY);
+        
+        console.log(`Cropping from high-res canvas at (${cropX}, ${cropY}) with size ${actualWidth}x${actualHeight}`);
+        
+        // Capture the cropped region directly from the p5 canvas
+        const croppedImage = sketchInstance.current.get(cropX, cropY, actualWidth, actualHeight);
+        
+        // Create a temporary canvas for the final export image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const ctx = tempCanvas.getContext('2d');
+        
+        if (ctx && croppedImage) {
+          // Set background color in case the crop is smaller than target dimensions
+          const bgColor = getCurrentColors().background;
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(0, 0, width, height);
           
-          p.setup = () => {
-            p.createCanvas(width, height);
-            p.noLoop(); // We just want one frame
+          // Center the cropped image
+          const offsetX = (width - actualWidth) / 2;
+          const offsetY = (height - actualHeight) / 2;
+          
+          // Draw the cropped image to the temporary canvas
+          croppedImage.loadPixels();
+          ctx.drawImage(
+            croppedImage.canvas, 
+            0, 0, croppedImage.width, croppedImage.height, 
+            offsetX, offsetY, actualWidth, actualHeight
+          );
+          
+          // Apply image smoothing if high quality is requested
+          if (highQuality) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+          } else {
+            ctx.imageSmoothingEnabled = false;
+          }
+          
+          // Generate data URL from the temp canvas
+          const qualityValue = format === 'jpg' ? (highQuality ? 0.95 : 0.9) : undefined;
+          const finalImageFormat = format === 'svg' ? 'png' : format;
+          const exportDataURL = tempCanvas.toDataURL(`image/${finalImageFormat}`, qualityValue);
+          
+          // Add metadata if requested
+          if (includeSourceCode) {
+            // Create another canvas to add metadata
+            const metaCanvas = document.createElement('canvas');
+            metaCanvas.width = width;
+            metaCanvas.height = height;
+            const metaCtx = metaCanvas.getContext('2d');
             
-            // Parse colors properly by creating color objects from hex strings
-            const parsedColors = {
-              background: p.color(currentColors.background),
-              foreground: p.color(currentColors.foreground),
-              foregroundColors: currentColors.foregroundColors?.map(color => p.color(color)) || []
-            };
-            
-            // Set background color from current sketch
-            p.background(parsedColors.background);
-            
-            // We'll reuse the same algorithm and parameters but with more particles
-            // for better high-resolution output
-            if (algorithm === 'perlinNoise') {
-              // Create particles (more of them for high-res)
-              const particleCount = Math.min(2000, Math.floor(width * height / 2000));
-              let particles = [];
-              
-              // Create particles with colors
-              const particleColors = [];
-              if (parsedColors.foregroundColors && parsedColors.foregroundColors.length > 0) {
-                parsedColors.foregroundColors.forEach(color => {
-                  particleColors.push(color);
-                });
-              } else {
-                particleColors.push(parsedColors.foreground);
-              }
-              
-              console.log("High-res export using colors:", 
-                parsedColors.foregroundColors?.map(c => [p.red(c), p.green(c), p.blue(c)]) || 
-                [[p.red(parsedColors.foreground), p.green(parsedColors.foreground), p.blue(parsedColors.foreground)]]
-              );
-              
-              // Create high-res particles
-              for (let i = 0; i < particleCount; i++) {
-                const color = particleColors[Math.floor(p.random(particleColors.length))];
-                const particle = {
-                  x: p.random(width),
-                  y: p.random(height),
-                  color: color,
-                  size: 2
-                };
-                particles.push(particle);
-              }
-              
-              // Create high-res perlin noise field
-              const moveSpeed = 0.4;
-              const moveScale = 800;
-              
-              // Run a number of iterations to create a good image
-              for (let iter = 0; iter < 100; iter++) {
-                particles.forEach(particle => {
-                  // Update position based on Perlin noise
-                  const angle = p.noise(particle.x / moveScale, particle.y / moveScale) * p.TWO_PI * moveScale;
-                  particle.x += p.cos(angle) * moveSpeed;
-                  particle.y += p.sin(angle) * moveSpeed;
-                  
-                  // Reset particle if it goes off-screen
-                  if (particle.x > width || particle.x < 0 || particle.y > height || particle.y < 0 || p.random(1) < 0.001) {
-                    particle.x = p.random(width);
-                    particle.y = p.random(height);
-                  }
-                  
-                  // Draw the particle
-                  p.fill(particle.color);
-                  p.noStroke();
-                  p.ellipse(particle.x, particle.y, particle.size, particle.size);
-                });
-              }
-            } else if (algorithm === 'flowField') {
-              // Create flow field particles (more for high-res)
-              const particleCount = Math.min(500, Math.floor(width * height / 10000));
-              let particles = [];
-              
-              // Create particles
-              for (let i = 0; i < particleCount; i++) {
-                const pos = p.createVector(p.random(width), p.random(height));
-                const prevPos = pos.copy();
-                const vel = p.createVector(0, 0);
-                const maxSpeed = p.random(2, 4);
+            if (metaCtx) {
+              // Draw the exported image
+              const metaImg = new Image();
+              metaImg.onload = () => {
+                metaCtx.drawImage(metaImg, 0, 0);
                 
-                // Use a random color from foregroundColors if available
-                let color;
-                if (parsedColors.foregroundColors && parsedColors.foregroundColors.length > 0) {
-                  color = parsedColors.foregroundColors[Math.floor(p.random(parsedColors.foregroundColors.length))];
-                } else {
-                  color = parsedColors.foreground;
-                }
+                // Add metadata
+                const infoHeight = Math.max(24, Math.floor(height / 30));
+                const infoWidth = Math.max(200, Math.floor(width / 7));
+                const fontSize = Math.max(10, Math.floor(infoHeight * 0.5));
                 
-                const alpha = p.random(20, 100);
-                const strokeWeight = p.random(0.1, 1.5);
+                metaCtx.fillStyle = 'rgba(0,0,0,0.6)';
+                metaCtx.fillRect(5, height - infoHeight - 5, infoWidth, infoHeight);
                 
-                particles.push({ pos, prevPos, vel, maxSpeed, color, alpha, strokeWeight });
-              }
-              
-              // Run iterations to create flow field
-              const noiseScale = params.noiseScale / 100 * 0.01;
-              const speed = params.speed / 100 * 5;
-              
-              for (let iter = 0; iter < 200; iter++) {
-                const time = iter * 0.1;
+                metaCtx.fillStyle = 'white';
+                metaCtx.font = `${fontSize}px monospace`;
+                metaCtx.fillText(`Algorithm: ${algorithm} | WallGen`, 10, height - infoHeight/2);
                 
-                particles.forEach(particle => {
-                  // Save previous position
-                  particle.prevPos = particle.pos.copy();
-                  
-                  // Calculate direction from noise
-                  const angle = p.noise(
-                    particle.pos.x * noiseScale,
-                    particle.pos.y * noiseScale,
-                    time * 0.01
-                  ) * p.TWO_PI * 2;
-                  
-                  const force = p.Vector.fromAngle(angle);
-                  force.mult(speed * 0.5);
-                  
-                  // Update velocity
-                  const acc = force.copy();
-                  particle.vel.add(acc);
-                  particle.vel.limit(particle.maxSpeed);
-                  particle.pos.add(particle.vel);
-                  
-                  // Reset if out of bounds
-                  if (particle.pos.x < 0 || particle.pos.x > width || particle.pos.y < 0 || particle.pos.y > height) {
-                    particle.pos = p.createVector(p.random(width), p.random(height));
-                    particle.prevPos = particle.pos.copy();
-                  }
-                  
-                  // Draw the particle with proper color handling
-                  p.stroke(particle.color, particle.alpha);
-                  p.strokeWeight(particle.strokeWeight);
-                  p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
-                });
-              }
-            } else if (algorithm === 'cellular') {
-              // Create cellular automata at higher resolution
-              const complexity = Math.floor((params.complexity / 100) * 10) + 1;
-              const cellSize = Math.floor(16 - (complexity * 0.5));
-              const scaledCellSize = Math.max(2, Math.floor(cellSize * width / originalWidth));
-              
-              const cols = Math.floor(width / scaledCellSize);
-              const rows = Math.floor(height / scaledCellSize);
-              
-              // Initialize with random cells
-              let grid = Array(cols).fill(0).map(() => 
-                Array(rows).fill(0).map(() => p.random() > 0.5 ? 1 : 0)
-              );
-              
-              // Run iterations to evolve the cellular automata
-              for (let iter = 0; iter < 20; iter++) {
-                const nextGrid = Array(cols).fill(0).map(() => Array(rows).fill(0));
-                
-                // Update grid
-                for (let i = 0; i < cols; i++) {
-                  for (let j = 0; j < rows; j++) {
-                    let neighbors = 0;
-                    
-                    // Count neighbors (8-way)
-                    for (let x = -1; x <= 1; x++) {
-                      for (let y = -1; y <= 1; y++) {
-                        if (x === 0 && y === 0) continue;
-                        
-                        const col = (i + x + cols) % cols;
-                        const row = (j + y + rows) % rows;
-                        
-                        neighbors += grid[col][row];
-                      }
-                    }
-                    
-                    // Apply rules based on complexity
-                    if (complexity <= 5) {
-                      // Simple Conway's Game of Life rules
-                      if (grid[i][j] === 1 && (neighbors < 2 || neighbors > 3)) {
-                        nextGrid[i][j] = 0;
-                      } else if (grid[i][j] === 0 && neighbors === 3) {
-                        nextGrid[i][j] = 1;
-                      } else {
-                        nextGrid[i][j] = grid[i][j];
-                      }
-                    } else {
-                      // More complex rules
-                      if (grid[i][j] === 1 && (neighbors < 2 || neighbors > (3 + Math.floor(complexity / 3)))) {
-                        nextGrid[i][j] = 0;
-                      } else if (grid[i][j] === 0 && (neighbors === 3 || neighbors === Math.floor(complexity / 2))) {
-                        nextGrid[i][j] = 1;
-                      } else {
-                        nextGrid[i][j] = grid[i][j];
-                      }
-                    }
-                  }
-                }
-                
-                // Swap grids
-                grid = nextGrid;
-              }
-              
-              // Draw the final grid with proper colors
-              p.noStroke();
-              p.fill(parsedColors.foreground);
-              
-              for (let i = 0; i < cols; i++) {
-                for (let j = 0; j < rows; j++) {
-                  if (grid[i][j] === 1) {
-                    p.rect(i * scaledCellSize, j * scaledCellSize, scaledCellSize, scaledCellSize);
-                  }
-                }
-              }
-            }
-            
-            // Signal ready to capture after drawing is complete
-            ready = true;
-          };
-        }, offscreenContainer);
-        
-        // Wait for the high-res render to complete
-        const checkReady = setInterval(() => {
-          if (highResSketch && highResSketch.canvas) {
-            clearInterval(checkReady);
-            
-            // Capture the high-res canvas
-            const highResDataURL = highResSketch.canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`, 
-              format === 'jpg' ? 0.95 : undefined);
-            
-            // Add metadata if requested
-            if (includeSourceCode) {
-              const tempCanvas = document.createElement('canvas');
-              tempCanvas.width = width;
-              tempCanvas.height = height;
-              const ctx = tempCanvas.getContext('2d') as CanvasRenderingContext2D;
-              
-              if (ctx) {
-                // Load the high-res image
-                const img = new Image();
-                img.onload = () => {
-                  // Draw the high-res image
-                  ctx.drawImage(img, 0, 0);
-                  
-                  // Add algorithm name and parameters as small text in corner
-                  const infoHeight = Math.max(24, Math.floor(height / 30));
-                  const infoWidth = Math.max(200, Math.floor(width / 7));
-                  const fontSize = Math.max(10, Math.floor(infoHeight * 0.5));
-                  
-                  // Add semi-transparent background for text
-                  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                  ctx.fillRect(5, height - infoHeight - 5, infoWidth, infoHeight);
-                  
-                  // Add text with proper sizing
-                  ctx.fillStyle = 'white';
-                  ctx.font = `${fontSize}px monospace`;
-                  ctx.fillText(`Algorithm: ${algorithm} | WallGen`, 10, height - infoHeight/2);
-                  
-                  // Create download link
-                  const finalDataURL = tempCanvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`, 
-                    format === 'jpg' ? 0.95 : undefined);
-                  
-                  // Create download link
-                  downloadImage(finalDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
-                };
-                img.src = highResDataURL;
-              } else {
-                // Fallback to original image if context fails
-                downloadImage(highResDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
-              }
+                // Generate final data URL with metadata
+                const finalDataURL = metaCanvas.toDataURL(`image/${finalImageFormat}`, qualityValue);
+                downloadImage(finalDataURL, `${filename}.${finalImageFormat}`);
+              };
+              metaImg.src = exportDataURL;
             } else {
-              // Download directly without metadata
-              downloadImage(highResDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
+              downloadImage(exportDataURL, `${filename}.${finalImageFormat}`);
             }
-            
-            // Clean up
-            highResSketch.remove();
-            document.body.removeChild(offscreenContainer);
-            
-            // Resume the main sketch if it was looping
-            if (sketchInstance.current) {
-              sketchInstance.current.loop();
-            }
-            
-            // Restore scroll position
-            window.scrollTo(scrollX, scrollY);
+          } else {
+            downloadImage(exportDataURL, `${filename}.${finalImageFormat}`);
           }
-        }, 100);
-        
-        // Timeout if it takes too long
-        setTimeout(() => {
-          clearInterval(checkReady);
-          
-          // No longer using capturedCanvasRef for exports
-          console.warn("High-resolution export timed out");
-          
-          // Clean up
-          if (highResSketch) {
-            highResSketch.remove();
-          }
-          if (document.body.contains(offscreenContainer)) {
-            document.body.removeChild(offscreenContainer);
-          }
-          
-          // Resume the main sketch
-          if (sketchInstance.current) {
-            sketchInstance.current.loop();
-          }
-          
-          // Restore scroll position
-          window.scrollTo(scrollX, scrollY);
-        }, 5000);
+        } else {
+          console.error('Failed to create export context or capture image from canvas');
+        }
       } else {
-        console.error('Cannot export: Canvas not available');
+        console.error('Cannot export: Main canvas sketchInstance or canvas not available');
       }
     };
     
@@ -1064,7 +886,15 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
   }, [triggerInitialization, isSaving]);
 
   return (
-    <div ref={canvasRef} className={className} style={{ width: '100%', height: '100%' }}>
+    <div 
+      ref={canvasRef} 
+      className={className} 
+      style={{ 
+        width: `${VIEWPORT_WIDTH}px`, 
+        height: `${VIEWPORT_HEIGHT}px`,
+        margin: '0 auto' // Center the canvas in its parent container
+      }}
+    >
       {!p5 && <div className="flex items-center justify-center h-full">Loading P5.js...</div>}
     </div>
   );

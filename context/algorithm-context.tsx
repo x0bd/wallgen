@@ -334,7 +334,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     }
   }, [colorOptions, selectedColorId, isInverted])
   
-  // Export canvas with custom dimensions and format
+  // Function to export canvas with custom settings
   const exportCanvas = useCallback((options: { 
     width: number, 
     height: number, 
@@ -344,31 +344,36 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     addBorder?: boolean,
     highQuality?: boolean
   }) => {
-    // First, capture the current canvas state 
-    const captureEvent = new CustomEvent('wallgen-capture-canvas', {
-      detail: { purpose: 'export' }
-    });
-    window.dispatchEvent(captureEvent);
-    
-    // Then start the saving animation
     setIsSaving(true);
     
-    // After a brief delay, trigger export with custom options
+    // Calculate a delay for visual effect
+    const delay = 1000;
+    
+    // Dispatch an event to capture the canvas
+    window.dispatchEvent(new CustomEvent('wallgen-capture-canvas', {
+      detail: { purpose: 'export' }
+    }));
+    
+    // Dispatch an event to export the canvas after a delay
     setTimeout(() => {
-      const exportEvent = new CustomEvent('wallgen-export-canvas', {
+      window.dispatchEvent(new CustomEvent('wallgen-export-canvas', {
         detail: {
           ...options,
-          algorithm
+          algorithm,
+          params,
+          selectedColorId,
+          includeSourceCode: options.includeSourceCode,
+          addBorder: options.addBorder,
+          highQuality: options.highQuality
         }
-      });
-      window.dispatchEvent(exportEvent);
+      }));
       
-      // Set a timeout to finish the saving state
+      // Set saving to false after export is triggered
       setTimeout(() => {
         setIsSaving(false);
-      }, 1500);
-    }, 500);
-  }, [algorithm]);
+      }, 500);
+    }, delay);
+  }, [algorithm, params, selectedColorId]);
 
   return (
     <AlgorithmContext.Provider 
