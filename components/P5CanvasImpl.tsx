@@ -42,8 +42,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
 
   // Replace the dynamic viewport sizing with fixed dimensions
   const MASTER_CANVAS_SIZE = 4000; // High-resolution master canvas size
-  const VIEWPORT_WIDTH = 1600;
-  const VIEWPORT_HEIGHT = 900;
+  const VIEWPORT_WIDTH = 1920;
+  const VIEWPORT_HEIGHT = 1080;
   const [viewportPosition, setViewportPosition] = useState({ x: MASTER_CANVAS_SIZE/2, y: MASTER_CANVAS_SIZE/2 }); // Center of canvas
   const [viewportSize, setViewportSize] = useState({ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT });
 
@@ -357,8 +357,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     
     // Setup function
     p.setup = () => {
-      // Create a high-resolution master canvas
-      const canvas = p.createCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE);
+      // Create a high-resolution master canvas with P2D renderer explicitly specified
+      const canvas = p.createCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE, p.P2D);
       
       // Position the canvas within its container
       canvas.parent(canvasRef.current);
