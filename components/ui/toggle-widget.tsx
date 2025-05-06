@@ -74,7 +74,7 @@ export function ToggleWidget({
             }}
             className="overflow-hidden"
           >
-            <div className="px-4 py-4 border-t border-black/5 dark:border-white/5">
+            <div className="px-5 py-5 border-t border-black/5 dark:border-white/5">
               {children}
             </div>
           </motion.div>

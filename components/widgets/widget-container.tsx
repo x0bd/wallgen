@@ -44,7 +44,7 @@ export function WidgetContainer({
   return (
     <>
       <motion.div 
-        className={`${positionClasses[position]} max-w-[280px] w-full space-y-3 pointer-events-none z-30 ${className}`}
+        className={`${positionClasses[position]} max-w-[320px] w-full space-y-3 pointer-events-none z-30 ${className}`}
         initial={containerClosedClasses[position]}
         animate={isOpen ? containerOpenClasses[position] : containerClosedClasses[position]}
         transition={{ 
