@@ -166,8 +166,20 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Save current state function - replaces generate
   const saveCurrentState = useCallback(() => {
     setIsSaving(true);
-    setNeedsRedraw(true);
-  }, [])
+    
+    // After showing the saving animation for a bit, trigger the actual download
+    setTimeout(() => {
+      // Create a custom event to trigger the download in P5CanvasImpl
+      const event = new CustomEvent('wallgen-save-canvas', {
+        detail: {
+          filename: `wallgen-${algorithm}-${Date.now()}`
+        }
+      });
+      window.dispatchEvent(event);
+      
+      setNeedsRedraw(true);
+    }, 1000); // Wait 1 second before triggering the download to show animation
+  }, [algorithm])
   
   // Function to mark saving as complete
   const finishSaving = useCallback(() => {

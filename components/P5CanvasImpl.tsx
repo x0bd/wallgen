@@ -335,7 +335,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       // Store reference to initialization function in the ref for access in useEffect
       initFunctionRef.current = initializeParticles;
       
-      p.noLoop(); // Start in noLoop mode
+      // Start the animation loop by default
+      p.loop();
     };
 
     // Initialize particles based on the current algorithm
@@ -551,7 +552,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       
       // Control animation loop - always animate in continuous mode
       // Use appropriate frame rate
-      p.frameRate(isSaving ? 60 : 30); // Higher framerate during saving for smooth capture
+      p.frameRate(isSaving ? 60 : 24); // Higher framerate during saving for smooth capture
     };
     
     // Draw a border around the canvas
@@ -584,8 +585,24 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     // Create a new p5 instance
     sketchInstance.current = new p5(createSketch, canvasRef.current);
     
+    // Add event listener for saving the canvas
+    const handleSaveCanvas = (event: CustomEvent) => {
+      if (sketchInstance.current) {
+        const filename = event.detail?.filename || `wallgen-${Date.now()}`;
+        console.log("Saving canvas as:", filename);
+        
+        // Use p5's save method to trigger the download
+        sketchInstance.current.save(filename);
+      }
+    };
+    
+    // Add the event listener
+    window.addEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+    
     return () => {
       // Cleanup
+      window.removeEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+      
       if (sketchInstance.current) {
         sketchInstance.current.remove();
         sketchInstance.current = null;
