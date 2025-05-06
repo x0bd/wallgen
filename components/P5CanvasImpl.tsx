@@ -351,6 +351,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     // Initialize particles based on the current algorithm
     const initializeParticles = () => {
       const normalizedParams = getNormalizedParams();
+      const colors = getColors();
+      const [r, g, b] = getRGB(colors.background);
+      
+      // Always set a clean background on initialization
+      p.background(r, g, b);
       
       // Check if we really need to recreate particles (for performance)
       // Only recreate particles if certain params have changed significantly
@@ -359,7 +364,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         Math.abs(params.density - lastParams.density) > 5 ||
         Math.abs(params.complexity - lastParams.complexity) > 5 ||
         params.randomizeOnLoad !== lastParams.randomizeOnLoad ||
-        selectedColorId !== lastParams.selectedColorId
+        selectedColorId !== lastParams.selectedColorId ||
+        needsParticleReset
       );
       
       // Store current params for future comparison
@@ -388,6 +394,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       // If we get here, we need to recreate particles
       needsParticleReset = false;
       particles = [];
+      time = 0; // Always reset time when recreating particles
       
       // Reset quadtree
       resetQuadtree();
@@ -398,7 +405,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // Create custom color palette like in reference
         const particleColors = [];
-        const colors = getColors();
         
         if (colors.foregroundColors && colors.foregroundColors.length > 0) {
           // Use the provided foreground colors
@@ -452,9 +458,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         particles = [new CellularAutomata(cellSize)];
         particles[0].randomize(normalizedParams.density);
       }
-      
-      // Make sure time is reset here if needed for consistent simulation start
-      time = 0;
     };
 
     // Draw function
@@ -630,14 +633,35 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     };
     
+    // Handler for complete canvas reset
+    const handleResetCanvas = () => {
+      if (sketchInstance.current) {
+        console.log("Resetting canvas completely");
+        
+        // Force resetting of particles and background
+        if (initFunctionRef.current) {
+          // Reset internal state directly
+          sketchInstance.current.clear();
+          
+          // Reinitialize particles
+          initFunctionRef.current();
+          
+          // Force redraw to show the reset state immediately
+          sketchInstance.current.redraw();
+        }
+      }
+    };
+    
     // Add the event listeners
     window.addEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
     window.addEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+    window.addEventListener('wallgen-reset-canvas', handleResetCanvas as EventListener);
     
     return () => {
       // Cleanup
       window.removeEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
       window.removeEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+      window.removeEventListener('wallgen-reset-canvas', handleResetCanvas as EventListener);
       
       if (sketchInstance.current) {
         sketchInstance.current.remove();

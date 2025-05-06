@@ -193,8 +193,13 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   
   // Clear the canvas - reinitialize particles
   const clearCanvas = useCallback(() => {
+    // Create a custom event to trigger a complete canvas reset
+    const resetEvent = new CustomEvent('wallgen-reset-canvas', {});
+    window.dispatchEvent(resetEvent);
+    
+    // Also trigger regular initialization (for backward compatibility)
     setInitSignal(s => s + 1);
-    setNeedsRedraw(true); // Trigger reinitialization
+    setNeedsRedraw(true);
   }, [])
 
   // Function to explicitly trigger initialization

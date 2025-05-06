@@ -23,4 +23,4 @@ const P5CanvasImpl = dynamic(() => import('./P5CanvasImpl'), {
 // This is a wrapper component that safely renders the canvas only on the client
 export function P5Canvas(props: P5CanvasProps) {
   return <P5CanvasImpl {...props} />;
-} 
+}
