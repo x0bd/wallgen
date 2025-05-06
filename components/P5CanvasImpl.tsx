@@ -28,7 +28,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     hasContent,
     triggerInitialization,
     selectedColorId,
-    isGenerating
+    isSaving
   } = useAlgorithm();
 
   // Load p5.js dynamically on the client side only
@@ -456,111 +456,102 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       const [r, g, b] = getRGB(colors.background);
       
       // Begin logic for drawing
-      if (hasContent || isGenerating) {
-        if (algorithm === 'perlinNoise') {
-          // Only set background once at the beginning, like in reference
-          if (time === 0) {
-            // In reference, a deep purple background is used "#1a0633"
-            // But we'll use the user's background color for consistency
-            if (!params.transparentBackground) {
-              p.background(r, g, b);
-            } else {
-              // For transparent background, use clear with low alpha to create trails
-              p.clear();
-            }
-          } else if (params.transparentBackground) {
-            // For transparent mode, we need to clear with very low alpha
-            // to create the trails effect while maintaining transparency
-            p.background(0, 0, 0, 3); // Nearly transparent black for the fade effect
-          }
-          // No background refresh for regular mode during animation to allow trails to build up
-          
-          // Reset quadtree for efficiency
-          resetQuadtree();
-          
-          // Reference moveSpeed is 0.4, moveScale is 800 - exact match
-          const moveSpeed = 0.4; // Fixed value from reference
-          const moveScale = 800; // Fixed value from reference
-          
-          // Update the time factor based on speed parameter for user control
-          if (isGenerating) {
-            // During generation, use speed parameter to control animation speed
-            time += normalizedParams.speed * 0.01;
+      if (algorithm === 'perlinNoise') {
+        // Only set background once at the beginning, like in reference
+        if (time === 0) {
+          // In reference, a deep purple background is used "#1a0633"
+          // But we'll use the user's background color for consistency
+          if (!params.transparentBackground) {
+            p.background(r, g, b);
           } else {
-            // After generation, run at a more gentle pace
-            time += Math.min(normalizedParams.speed, 2) * 0.005;
+            // For transparent background, use clear with low alpha to create trails
+            p.clear();
           }
-          
-          // Update all particles - exactly like the reference implementation
-          for (const particle of particles) {
-            particle.update(moveSpeed, moveScale);
-            particle.display();
-            quadtree!.insert(particle);
-          }
-          
-          // Draw border after particles
-          drawBorder(colors.foreground);
-        } else if (algorithm === 'flowField') {
-          // For other algorithms, always clear the background
-          p.background(r, g, b);
-          
-          // --- Simulation Steps ---
-          // Use a fixed number of steps
-          const simulationSteps = isGenerating ? 15 : 8;
-          
-          // Run simulation internally
-          for (let step = 0; step < simulationSteps; step++) {
-            time += normalizedParams.speed * 0.01; // Advance time
-            for (const particle of particles) {
-              particle.update(normalizedParams.noiseScale, normalizedParams.speed);
-              // Update prevPos only on the last step for correct line drawing
-              if (step === simulationSteps - 1) {
-                 particle.prevPos = particle.pos.copy();
-              }
-            }
-          }
-          
-          // Draw flow field particles
-          for (const particle of particles) {
-            const [fr, fg, fb] = getRGB(particle.color);
-            p.stroke(fr, fg, fb, 180);
-            p.strokeWeight(particle.strokeWeight * 1.5);
-            p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
-          }
-          drawBorder(colors.foreground);
-        } else if (algorithm === 'cellular' && particles.length > 0) {
-          // Clear background for cellular automata
-          p.background(r, g, b);
-          
-          // Run cellular automata simulation steps
-          const simulationSteps = isGenerating ? 15 : 8;
-          for (let step = 0; step < simulationSteps; step++) {
-            // Only update cellular every few sim steps based on speed param for visual stability
-            if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
-               particles[0].update(normalizedParams.complexity);
-            }
-          }
-          
-          // Display cellular automata
-          particles[0].display(colors.foreground);
-          drawBorder(colors.foreground);
+        } else if (params.transparentBackground) {
+          // For transparent mode, we need to clear with very low alpha
+          // to create the trails effect while maintaining transparency
+          p.background(0, 0, 0, 3); // Nearly transparent black for the fade effect
         }
+        // No background refresh for regular mode during animation to allow trails to build up
+        
+        // Reset quadtree for efficiency
+        resetQuadtree();
+        
+        // Reference moveSpeed is 0.4, moveScale is 800 - exact match
+        const moveSpeed = 0.4; // Fixed value from reference
+        const moveScale = 800; // Fixed value from reference
+        
+        // Update the time factor based on speed parameter for user control
+        if (isSaving) {
+          // During saving, possibly speed up animation for better effect
+          time += normalizedParams.speed * 0.02;
+        } else {
+          // Normal continuous animation mode
+          time += normalizedParams.speed * 0.01;
+        }
+        
+        // Update all particles - exactly like the reference implementation
+        for (const particle of particles) {
+          particle.update(moveSpeed, moveScale);
+          particle.display();
+          quadtree!.insert(particle);
+        }
+        
+        // Draw border after particles
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'flowField') {
+        // For other algorithms, always clear the background
+        p.background(r, g, b);
+        
+        // --- Simulation Steps ---
+        // Use a fixed number of steps
+        const simulationSteps = isSaving ? 15 : 8;
+        
+        // Run simulation internally
+        for (let step = 0; step < simulationSteps; step++) {
+          time += normalizedParams.speed * 0.01; // Advance time
+          for (const particle of particles) {
+            particle.update(normalizedParams.noiseScale, normalizedParams.speed);
+            // Update prevPos only on the last step for correct line drawing
+            if (step === simulationSteps - 1) {
+               particle.prevPos = particle.pos.copy();
+            }
+          }
+        }
+        
+        // Draw flow field particles
+        for (const particle of particles) {
+          const [fr, fg, fb] = getRGB(particle.color);
+          p.stroke(fr, fg, fb, 180);
+          p.strokeWeight(particle.strokeWeight * 1.5);
+          p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
+        }
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'cellular' && particles.length > 0) {
+        // Clear background for cellular automata
+        p.background(r, g, b);
+        
+        // Run cellular automata simulation steps
+        const simulationSteps = isSaving ? 15 : 8;
+        for (let step = 0; step < simulationSteps; step++) {
+          // Only update cellular every few sim steps based on speed param for visual stability
+          if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
+             particles[0].update(normalizedParams.complexity);
+          }
+        }
+        
+        // Display cellular automata
+        particles[0].display(colors.foreground);
+        drawBorder(colors.foreground);
       } else {
         // Empty state - just clear the canvas
         p.background(r, g, b);
         drawBorder(colors.foreground);
       }
       
-      // Control animation loop
-      if (isGenerating || (algorithm === 'perlinNoise' && hasContent)) {
-        // Always loop for Perlin Noise (during and after generation)
-        if (!p.isLooping()) p.loop();
-        // Use appropriate frame rate
-        p.frameRate(isGenerating ? 30 : 20);
-      } else {
-        // For other algorithms, stop animation after generating
-        if (p.isLooping()) p.noLoop();
-      }
+      // Control animation loop - always animate in continuous mode
+      // Use appropriate frame rate
+      p.frameRate(isSaving ? 60 : 30); // Higher framerate during saving for smooth capture
     };
     
     // Draw a border around the canvas
@@ -584,7 +575,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         initFunctionRef.current();
       }
     };
-  }, [algorithm, params, getCurrentColors, hasContent, selectedColorId, isGenerating]);
+  }, [algorithm, params, getCurrentColors, hasContent, selectedColorId, isSaving]);
 
   // Create the p5 instance when the p5 module is loaded
   useEffect(() => {
@@ -616,12 +607,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
   useEffect(() => {
     if (!sketchInstance.current || !initFunctionRef.current) return;
     
-    if (!isGenerating) {
+    if (!isSaving) {
       console.log("Initializing particles from trigger...");
       initFunctionRef.current();
       sketchInstance.current.redraw();
     }
-  }, [triggerInitialization, isGenerating]);
+  }, [triggerInitialization, isSaving]);
 
   return (
     <div ref={canvasRef} className={className} style={{ width: '100%', height: '100%' }}>

@@ -1,24 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
 
-interface GenerationProgressProps {
-  isGenerating: boolean;
+interface SaveProgressProps {
+  isSaving: boolean;
   onComplete: () => void;
   duration?: number;
 }
 
-export function GenerationProgress({
-  isGenerating,
+export function SaveProgress({
+  isSaving,
   onComplete,
-  duration = 10000,
-}: GenerationProgressProps) {
+  duration = 3000, // Shorter duration for saving
+}: SaveProgressProps) {
   const [progress, setProgress] = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
   
   useEffect(() => {
-    if (!isGenerating) {
+    if (!isSaving) {
       setProgress(0);
       setFadeOut(false);
       return;
@@ -44,14 +44,18 @@ export function GenerationProgress({
     }, 50);
     
     return () => clearInterval(interval);
-  }, [isGenerating, duration, onComplete]);
+  }, [isSaving, duration, onComplete]);
   
-  if (!isGenerating && !fadeOut) return null;
+  if (!isSaving && !fadeOut) return null;
   
   return (
     <div className={`absolute inset-0 z-10 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
       <div className="flex flex-col items-center gap-4 p-8 bg-black border border-white/20 rounded-md">
-        <Loader2 className={`w-8 h-8 text-white animate-spin ${progress >= 100 ? 'animate-ping' : 'animate-spin'}`} />
+        {progress < 100 ? (
+          <Loader2 className="w-8 h-8 text-white animate-spin" />
+        ) : (
+          <Download className="w-8 h-8 text-white animate-ping" />
+        )}
         
         <div className="w-48 h-2 bg-white/20 rounded-full overflow-hidden">
           <div 
@@ -61,7 +65,7 @@ export function GenerationProgress({
         </div>
         
         <p className="text-white font-mono text-sm">
-          {progress < 100 ? `Generating wallpaper... ${Math.round(progress)}%` : "Almost ready..."}
+          {progress < 100 ? `Saving wallpaper... ${Math.round(progress)}%` : "Ready to download!"}
         </p>
       </div>
     </div>

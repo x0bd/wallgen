@@ -3,19 +3,19 @@
 import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
-import { GenerationProgress } from "@/components/GenerationProgress";
-import { Waves, Hexagon, Wind, Play, Trash2 } from "lucide-react";
+import { SaveProgress } from "@/components/GenerationProgress";
+import { Waves, Hexagon, Wind, Download, Trash2 } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
   const { 
     algorithm, 
     setAlgorithm, 
-    generate, 
+    saveCurrentState, 
     hasContent, 
     clearCanvas, 
-    isGenerating,
-    completeGeneration 
+    isSaving,
+    finishSaving 
   } = useAlgorithm();
   
   return (
@@ -34,42 +34,40 @@ export default function Home() {
               className="w-full h-full"
             />
             
-            {/* Generation Progress Overlay */}
-            <GenerationProgress 
-              isGenerating={isGenerating} 
-              onComplete={completeGeneration}
-              duration={10000} // 10 seconds
+            {/* Saving Progress Overlay */}
+            <SaveProgress 
+              isSaving={isSaving} 
+              onComplete={finishSaving}
+              duration={3000} // 3 seconds for saving
             />
           </div>
           
           {/* Action Buttons */}
           <div className="flex gap-3">
             <button
-              onClick={generate}
-              disabled={isGenerating}
+              onClick={saveCurrentState}
+              disabled={isSaving}
               className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-black text-white hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
             >
-              <Play size={16} />
-              Generate Wallpaper
+              <Download size={16} />
+              Save Wallpaper
             </button>
             
-            {hasContent && (
-              <button
-                onClick={clearCanvas}
-                disabled={isGenerating}
-                className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
-              >
-                <Trash2 size={16} />
-                Clear Canvas
-              </button>
-            )}
+            <button
+              onClick={clearCanvas}
+              disabled={isSaving}
+              className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
+            >
+              <Trash2 size={16} />
+              Reset Canvas
+            </button>
           </div>
           
           {/* Algorithm Selection */}
           <div className="w-full flex flex-wrap items-center justify-center gap-3">
             <button 
               onClick={() => setAlgorithm('perlinNoise')}
-              disabled={isGenerating}
+              disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'perlinNoise' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
@@ -82,7 +80,7 @@ export default function Home() {
             
             <button 
               onClick={() => setAlgorithm('cellular')}
-              disabled={isGenerating}
+              disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'cellular' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
@@ -95,7 +93,7 @@ export default function Home() {
             
             <button 
               onClick={() => setAlgorithm('flowField')}
-              disabled={isGenerating}
+              disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
                 ${algorithm === 'flowField' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 

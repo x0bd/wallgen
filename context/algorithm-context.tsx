@@ -44,10 +44,10 @@ interface AlgorithmContextState {
   getCurrentColors: () => { background: string, foreground: string, foregroundColors?: string[] }
   needsRedraw: boolean
   hasContent: boolean
-  isGenerating: boolean
-  generate: () => void
+  isSaving: boolean
+  saveCurrentState: () => void
   clearCanvas: () => void
-  completeGeneration: () => void
+  finishSaving: () => void
   triggerInitialization: () => void
 }
 
@@ -114,8 +114,8 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   
   // Generation/Drawing state
   const [needsRedraw, setNeedsRedraw] = useState(false)
-  const [hasContent, setHasContent] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [hasContent, setHasContent] = useState(true) // Always true in continuous mode
+  const [isSaving, setIsSaving] = useState(false)
   const [initSignal, setInitSignal] = useState(0); // State to trigger initialization
 
   // Debounced initialization
@@ -124,16 +124,21 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Create debounced initialization function
   useEffect(() => {
     debouncedInitRef.current = debounce(() => {
-      if (hasContent) {
-        setInitSignal(s => s + 1);
-        setNeedsRedraw(true);
-      }
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
     }, 250); // 250ms debounce
 
     return () => {
       debouncedInitRef.current = null;
     };
-  }, [hasContent]);
+  }, []);
+
+  // Initialize on first load
+  useEffect(() => {
+    // Start with content and initialize immediately
+    setNeedsRedraw(true);
+    setInitSignal(s => s + 1);
+  }, []);
 
   // Update parameters - use debounced initialization to avoid performance drops
   const updateParams = useCallback((updates: Partial<AlgorithmParams>) => {
@@ -143,45 +148,39 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     if (updates.transparentBackground !== undefined || 
         updates.randomizeOnLoad !== undefined || 
         updates.autoAdjust !== undefined) {
-      if (hasContent) {
-        setInitSignal(s => s + 1);
-        setNeedsRedraw(true);
-      }
+      setInitSignal(s => s + 1);
+      setNeedsRedraw(true);
     } else {
       // For slider controls, use debounced update
       debouncedInitRef.current?.();
     }
-  }, [hasContent])
+  }, [])
   
-  // Reset parameters - also trigger redraw if content exists
+  // Reset parameters - also trigger redraw
   const resetParams = useCallback(() => {
     setParams(defaultParams)
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent])
-  
-  // Generate function - triggers initialization and redraw
-  const generate = useCallback(() => {
-    setIsGenerating(true);
+    setInitSignal(s => s + 1);
     setNeedsRedraw(true);
-    setInitSignal(s => s + 1); // Trigger re-initialization
   }, [])
   
-  // Function to mark generation as complete
-  const completeGeneration = useCallback(() => {
-    setIsGenerating(false);
-    setHasContent(true);
+  // Save current state function - replaces generate
+  const saveCurrentState = useCallback(() => {
+    setIsSaving(true);
+    setNeedsRedraw(true);
   }, [])
   
-  // Clear the canvas
+  // Function to mark saving as complete
+  const finishSaving = useCallback(() => {
+    setIsSaving(false);
+  }, [])
+  
+  // Clear the canvas - reinitialize particles
   const clearCanvas = useCallback(() => {
-    setHasContent(false)
-    setNeedsRedraw(true) // Redraw the empty state
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true); // Trigger reinitialization
   }, [])
 
-  // Function to explicitly trigger initialization (used by parameter changes)
+  // Function to explicitly trigger initialization
   const triggerInitialization = useCallback(() => {
     setInitSignal(s => s + 1);
   }, []);
@@ -195,11 +194,9 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     }
     setColorOptions(prev => [...prev, newColor])
     setSelectedColorId(newColor.id)
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent])
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, [])
 
   // Update an existing custom color
   const updateCustomColor = useCallback((id: string, color: Omit<ColorOption, 'id' | 'isCustom'>) => {
@@ -208,11 +205,9 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
         ? { ...c, ...color, isCustom: true } 
         : c
     ));
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent]);
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, []);
 
   // Delete a custom color
   const deleteCustomColor = useCallback((id: string) => {
@@ -223,29 +218,23 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
       setSelectedColorId(defaultColorOptions[0].id);
     }
     
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent, selectedColorId]);
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, [selectedColorId]);
 
   // Update selected color - trigger redraw
   const updateSelectedColorId = useCallback((id: string) => {
     setSelectedColorId(id);
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent]);
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, []);
 
   // Update inversion - trigger redraw
   const updateIsInverted = useCallback((inverted: boolean) => {
     setIsInverted(inverted);
-    if (hasContent) {
-      setInitSignal(s => s + 1);
-      setNeedsRedraw(true);
-    }
-  }, [hasContent]);
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, []);
 
   
   // Get current colors (memoized)
@@ -264,26 +253,26 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     <AlgorithmContext.Provider 
       value={{
         algorithm,
-        setAlgorithm, // Needs update to trigger re-init/redraw
+        setAlgorithm,
         params,
         updateParams,
         resetParams,
         colorOptions,
         selectedColorId,
-        setSelectedColorId: updateSelectedColorId, // Use wrapped version
+        setSelectedColorId: updateSelectedColorId,
         isInverted,
-        setIsInverted: updateIsInverted, // Use wrapped version
+        setIsInverted: updateIsInverted,
         addCustomColor,
         updateCustomColor,
         deleteCustomColor,
         getCurrentColors,
         needsRedraw,
         hasContent,
-        isGenerating,
-        generate,
+        isSaving,
+        saveCurrentState,
         clearCanvas,
-        completeGeneration,
-        triggerInitialization // Pass down the trigger
+        finishSaving,
+        triggerInitialization
       }}
     >
       {children}

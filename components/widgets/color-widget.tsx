@@ -19,7 +19,7 @@ export function ColorWidget() {
     addCustomColor,
     deleteCustomColor,
     getCurrentColors,
-    isGenerating,
+    isSaving,
     updateCustomColor
   } = useAlgorithm();
   
@@ -158,7 +158,7 @@ export function ColorWidget() {
                     className="w-6 h-6 rounded-full flex items-center justify-center" 
                     style={{ backgroundColor: color }}
                   >
-                    {index === 0 && <Paintbrush size={12} style={{ color: currentColors.background }} className={isGenerating ? "animate-pulse" : ""} />}
+                    {index === 0 && <Paintbrush size={12} style={{ color: currentColors.background }} className={isSaving ? "animate-pulse" : ""} />}
                   </div>
                 ))
               ) : (
@@ -166,7 +166,7 @@ export function ColorWidget() {
                   className="w-8 h-8 rounded-full flex items-center justify-center" 
                   style={{ backgroundColor: currentColors.foreground }}
                 >
-                  <Paintbrush size={14} style={{ color: currentColors.background }} className={isGenerating ? "animate-pulse" : ""} />
+                  <Paintbrush size={14} style={{ color: currentColors.background }} className={isSaving ? "animate-pulse" : ""} />
                 </div>
               )}
             </div>
@@ -186,8 +186,8 @@ export function ColorWidget() {
                 setCustomForegroundColors(["#f9f9f9"]);
                 setCustomLabel("");
               }}
-              disabled={isGenerating}
-              className={`text-xs font-mono flex items-center gap-1 py-1 px-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+              disabled={isSaving}
+              className={`text-xs font-mono flex items-center gap-1 py-1 px-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
             >
               <Plus size={12} />
               <span>Add</span>
@@ -199,10 +199,10 @@ export function ColorWidget() {
               <div key={color.id} className="relative group">
                 <button
                   onClick={() => setSelectedColorId(color.id)}
-                  disabled={isGenerating}
+                  disabled={isSaving}
                   className={`flex flex-col items-center p-2 rounded-lg transition-all w-full ${
                     selectedColorId === color.id ? 'ring-1 ring-black dark:ring-white ring-offset-1 ring-offset-white dark:ring-offset-black' : 'opacity-70 hover:opacity-100'
-                  } ${isGenerating ? 'pointer-events-none' : ''}`}
+                  } ${isSaving ? 'pointer-events-none' : ''}`}
                 >
                   <div 
                     className="w-full aspect-video mb-1 rounded-md border border-black/10 dark:border-white/10 flex items-center justify-center overflow-hidden"
@@ -234,14 +234,14 @@ export function ColorWidget() {
                   <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity right-1 top-1 flex gap-1">
                     <button 
                       onClick={() => handleEditColor(color.id)}
-                      disabled={isGenerating}
+                      disabled={isSaving}
                       className="bg-black/70 dark:bg-white/70 text-white dark:text-black p-0.5 rounded-sm"
                     >
                       <Palette size={10} />
                     </button>
                     <button 
                       onClick={() => deleteCustomColor(color.id)}
-                      disabled={isGenerating}
+                      disabled={isSaving}
                       className="bg-black/70 dark:bg-white/70 text-white dark:text-black p-0.5 rounded-sm"
                     >
                       <Trash2 size={10} />
@@ -267,7 +267,7 @@ export function ColorWidget() {
                       type="color"
                       value={customBackground}
                       onChange={(e) => setCustomBackground(e.target.value)}
-                      disabled={isGenerating}
+                      disabled={isSaving}
                       className="w-10 h-10 -ml-1 -mt-1 cursor-pointer"
                     />
                   </div>
@@ -275,8 +275,8 @@ export function ColorWidget() {
                     type="text"
                     value={customBackground}
                     onChange={(e) => setCustomBackground(e.target.value)}
-                    disabled={isGenerating}
-                    className={`flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
+                    disabled={isSaving}
+                    className={`flex-1 h-8 rounded-r-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isSaving ? 'opacity-50' : ''}`}
                   />
                 </div>
               </div>
@@ -286,8 +286,8 @@ export function ColorWidget() {
                   <label className="text-xs font-mono opacity-70 block">Foreground Colors ({customForegroundColors.length}/5)</label>
                   <button
                     onClick={handleAddForegroundColor}
-                    disabled={isGenerating || customForegroundColors.length >= 5}
-                    className={`text-xs font-mono flex items-center gap-1 p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${(isGenerating || customForegroundColors.length >= 5) ? 'opacity-50 pointer-events-none' : ''}`}
+                    disabled={isSaving || customForegroundColors.length >= 5}
+                    className={`text-xs font-mono flex items-center gap-1 p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${(isSaving || customForegroundColors.length >= 5) ? 'opacity-50 pointer-events-none' : ''}`}
                   >
                     <Plus size={10} />
                   </button>
@@ -310,7 +310,7 @@ export function ColorWidget() {
                       type="color"
                       value={customForegroundColors[currentForegroundIndex]}
                       onChange={(e) => handleUpdateForegroundColor(e.target.value, currentForegroundIndex)}
-                      disabled={isGenerating}
+                      disabled={isSaving}
                       className="w-10 h-10 -ml-1 -mt-1 cursor-pointer"
                     />
                   </div>
@@ -318,13 +318,13 @@ export function ColorWidget() {
                     type="text"
                     value={customForegroundColors[currentForegroundIndex]}
                     onChange={(e) => handleUpdateForegroundColor(e.target.value, currentForegroundIndex)}
-                    disabled={isGenerating}
-                    className={`flex-1 h-8 rounded-none border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
+                    disabled={isSaving}
+                    className={`flex-1 h-8 rounded-none border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isSaving ? 'opacity-50' : ''}`}
                   />
                   {customForegroundColors.length > 1 && (
                     <button
                       onClick={() => handleRemoveForegroundColor(currentForegroundIndex)}
-                      disabled={isGenerating}
+                      disabled={isSaving}
                       className="w-8 h-8 rounded-r-md border border-l-0 border-black/20 dark:border-white/20 flex items-center justify-center"
                     >
                       <Trash2 size={14} />
@@ -341,15 +341,15 @@ export function ColorWidget() {
                 value={customLabel}
                 onChange={(e) => setCustomLabel(e.target.value)}
                 placeholder="Enter palette name"
-                disabled={isGenerating}
-                className={`w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isGenerating ? 'opacity-50' : ''}`}
+                disabled={isSaving}
+                className={`w-full h-8 rounded-md border border-black/20 dark:border-white/20 bg-transparent py-0 px-2 text-xs font-mono ${isSaving ? 'opacity-50' : ''}`}
               />
             </div>
             
             <div className="flex space-x-2">
               <button 
                 onClick={handleAddCustomColor}
-                disabled={!customLabel.trim() || isGenerating}
+                disabled={!customLabel.trim() || isSaving}
                 className="flex-1 neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:hover:translate-y-0"
               >
                 <Save size={12} />
@@ -357,8 +357,8 @@ export function ColorWidget() {
               </button>
               <button 
                 onClick={handleCancelEdit}
-                disabled={isGenerating}
-                className={`w-10 neo-brutal py-2 text-xs font-mono text-center hover:-translate-y-[2px] transition-all ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+                disabled={isSaving}
+                className={`w-10 neo-brutal py-2 text-xs font-mono text-center hover:-translate-y-[2px] transition-all ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
               >
                 ✕
               </button>
@@ -372,7 +372,7 @@ export function ColorWidget() {
           <ToggleSwitch 
             isOn={isInverted} 
             onToggle={() => setIsInverted(!isInverted)} 
-            disabled={isGenerating}
+            disabled={isSaving}
           />
         </div>
         
@@ -383,15 +383,15 @@ export function ColorWidget() {
             <ToggleSwitch 
               isOn={!!params.transparentBackground} 
               onToggle={handleToggleTransparentBackground} 
-              disabled={isGenerating}
+              disabled={isSaving}
             />
           </div>
         )}
         
         {/* Apply Button */}
         <button 
-          disabled={isGenerating}
-          className={`w-full neo-brutal py-2 text-xs font-mono text-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
+          disabled={isSaving}
+          className={`w-full neo-brutal py-2 text-xs font-mono text-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
         >
           <Check size={14} />
           Apply Colors
