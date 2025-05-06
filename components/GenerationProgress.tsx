@@ -15,10 +15,12 @@ export function GenerationProgress({
   duration = 10000,
 }: GenerationProgressProps) {
   const [progress, setProgress] = useState(0);
+  const [fadeOut, setFadeOut] = useState(false);
   
   useEffect(() => {
     if (!isGenerating) {
       setProgress(0);
+      setFadeOut(false);
       return;
     }
     
@@ -30,20 +32,26 @@ export function GenerationProgress({
       setProgress(newProgress);
       
       if (elapsed >= duration) {
+        // Start fade out animation before completing
+        setFadeOut(true);
         clearInterval(interval);
-        onComplete();
+        
+        // Give the fade animation time to play before completing
+        setTimeout(() => {
+          onComplete();
+        }, 500);
       }
     }, 50);
     
     return () => clearInterval(interval);
   }, [isGenerating, duration, onComplete]);
   
-  if (!isGenerating) return null;
+  if (!isGenerating && !fadeOut) return null;
   
   return (
-    <div className="absolute inset-0 z-10 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+    <div className={`absolute inset-0 z-10 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}>
       <div className="flex flex-col items-center gap-4 p-8 bg-black border border-white/20 rounded-md">
-        <Loader2 className="w-8 h-8 text-white animate-spin" />
+        <Loader2 className={`w-8 h-8 text-white animate-spin ${progress >= 100 ? 'animate-ping' : 'animate-spin'}`} />
         
         <div className="w-48 h-2 bg-white/20 rounded-full overflow-hidden">
           <div 
@@ -53,7 +61,7 @@ export function GenerationProgress({
         </div>
         
         <p className="text-white font-mono text-sm">
-          Generating wallpaper... {Math.round(progress)}%
+          {progress < 100 ? `Generating wallpaper... ${Math.round(progress)}%` : "Almost ready..."}
         </p>
       </div>
     </div>

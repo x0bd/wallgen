@@ -109,9 +109,9 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.prevX = this.x;
         this.prevY = this.y;
         this.color = particleColor;
-        // Adjust size for better visualization, closer to reference
-        this.size = p.random(2, 4 + (complexity / 15));
-        this.speed = p.random(0.8, 2.0); // Higher speed for more dynamic movement
+        // Increase size for more visible trails
+        this.size = p.random(2.5, 5 + (complexity / 10));
+        this.speed = p.random(1.2, 2.5); // Higher speed for more dynamic movement
       }
       
       update(moveSpeed: number, moveScale: number) {
@@ -127,8 +127,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.y += p.sin(angle) * moveSpeed * this.speed;
         
         // Reset particle if it goes off screen or randomly (for variety)
-        // Low random chance for reset to allow longer trails to form
-        if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.001) {
+        // Very low random chance for reset to allow longer trails to form
+        if (this.x > p.width || this.x < 0 || this.y > p.height || this.y < 0 || p.random(1) < 0.0005) {
           this.x = p.random(p.width);
           this.y = p.random(p.height);
           this.prevX = this.x;
@@ -137,13 +137,24 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
       
       display() {
-        // Use line for trail effect, similar to reference
-        const [r, g, b] = getRGB(this.color);
+        // Calculate distance moved
+        const distance = p.dist(this.prevX, this.prevY, this.x, this.y);
         
-        // Draw line/trail between previous and current position
-        p.stroke(r, g, b, 150); // Semi-transparent for trail effect
-        p.strokeWeight(this.size);
-        p.line(this.prevX, this.prevY, this.x, this.y);
+        // Only draw if there's meaningful movement
+        if (distance > 0.1) {
+          // Use line for trail effect, similar to reference
+          const [r, g, b] = getRGB(this.color);
+          
+          // Draw line/trail between previous and current position
+          p.stroke(r, g, b, 180); // More opaque
+          p.strokeWeight(this.size);
+          p.line(this.prevX, this.prevY, this.x, this.y);
+          
+          // Optionally add a small endpoint dot for more definition
+          p.noStroke();
+          p.fill(r, g, b, 220);
+          p.ellipse(this.x, this.y, this.size * 0.5, this.size * 0.5);
+        }
       }
     }
     
@@ -381,8 +392,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           particleColors.push(p.color(r * 1.2, g * 1.1, b * 0.7));
         }
         
-        // Create particles, using exact 500 like the reference for best performance/appearance balance
-        const particleCount = 500;
+        // Create particles, increased from 500 to 600 for denser trails
+        const particleCount = 600;
         
         console.log(`Creating ${particleCount} particles for Perlin noise effect`);
         
@@ -429,12 +440,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Special handling for Perlin noise algorithm
         if (algorithm === 'perlinNoise') {
           if (time === 0) {
-            // First frame, clear the background
+            // Only clear on the very first frame
             p.background(r, g, b);
           } else {
-            // For subsequent frames during generation, apply a transparent overlay
-            // This creates the trail effect
-            p.fill(r, g, b, isGenerating ? 10 : 20); // More transparent during generation
+            // Apply a transparent overlay - use even more transparency for better trails
+            p.fill(r, g, b, 6); // Very transparent for longer, more vibrant trails
             p.noStroke();
             p.rect(0, 0, p.width, p.height);
           }
@@ -444,7 +454,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         }
         
         // --- Simulation Steps ---
-        const simulationSteps = isGenerating ? 20 : 100; // Fewer steps during generation for smoother animation
+        // Adjust step count based on generation state
+        const simulationSteps = isGenerating ? 15 : 8; // Faster animation during generation, slower after
         
         if (algorithm === 'perlinNoise') {
           resetQuadtree();
@@ -513,10 +524,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         drawBorder(colors.foreground);
       }
       
-      // Only loop during generation, otherwise stop after a single draw
+      // Control animation loop based on algorithm and state
       if (isGenerating) {
+        // Always loop during generation
         if (!p.isLooping()) p.loop();
+        p.frameRate(24); // Faster animation during generation
+      } else if (algorithm === 'perlinNoise' && hasContent) {
+        // For perlin noise, we want to keep drawing even after generation to show nice trails
+        // Keep looping for nice trail effects but at a slower rate
+        if (!p.isLooping()) p.loop();
+        p.frameRate(12); // Slower frame rate for subtle animation after generation
       } else {
+        // For other algorithms, stop animation after generating
         if (p.isLooping()) p.noLoop();
       }
     };
