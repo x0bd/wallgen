@@ -67,12 +67,16 @@ const defaultParams: AlgorithmParams = {
 
 // Default color options
 const defaultColorOptions: ColorOption[] = [
-  { id: "bw", background: "#000000", foreground: "#FFFFFF", label: "B&W" },
-  { id: "wb", background: "#FFFFFF", foreground: "#000000", label: "W&B" },
-  { id: "gray", background: "#222222", foreground: "#DDDDDD", label: "Gray" },
-  { id: "blue", background: "#0F172A", foreground: "#E2E8F0", label: "Blue" },
-  { id: "purple", background: "#2E1065", foreground: "#DDD6FE", label: "Purple" },
-  { id: "red", background: "#4C0519", foreground: "#FED7E2", label: "Red" },
+  { id: "bw", background: "#000000", foreground: "#FFFFFF", label: "Black" },
+  { id: "wb", background: "#FFFFFF", foreground: "#000000", label: "White" },
+  // AMOLED Black - True deep black for OLED displays with high contrast colors
+  {
+    id: "amoled",
+    background: "#000000", // True black for OLED displays
+    foreground: "#ffffff",
+    foregroundColors: ["#00e5ff", "#00ffc8", "#00ff85", "#f200ff", "#ff0077"],
+    label: "AMOLED"
+  },
   { 
     id: "rainbow", 
     background: "#000000", 
@@ -86,6 +90,54 @@ const defaultColorOptions: ColorOption[] = [
     foreground: "#FF5733", 
     foregroundColors: ["#581845", "#900C3F", "#C70039", "#FF5733", "#FFC30F"], 
     label: "Sunset" 
+  },
+  // Rose Pine
+  {
+    id: "rosepine",
+    background: "#191724",
+    foreground: "#e0def4",
+    foregroundColors: ["#ebbcba", "#eb6f92", "#f6c177", "#9ccfd8", "#c4a7e7"],
+    label: "Rose Pine"
+  },
+  // Catppuccin
+  {
+    id: "catppuccin",
+    background: "#1e1e2e",
+    foreground: "#cdd6f4",
+    foregroundColors: ["#f5c2e7", "#cba6f7", "#f38ba8", "#fab387", "#a6e3a1"],
+    label: "Catppuccin"
+  },
+  // Nord
+  {
+    id: "nord",
+    background: "#2e3440",
+    foreground: "#eceff4",
+    foregroundColors: ["#88c0d0", "#81a1c1", "#5e81ac", "#bf616a", "#a3be8c"],
+    label: "Nord"
+  },
+  // Vesper (I'll create a dark theme with purple accents)
+  {
+    id: "vesper",
+    background: "#1d2021",
+    foreground: "#d4be98",
+    foregroundColors: ["#89b482", "#a9b665", "#d8a657", "#e78a4e", "#d3869b"],
+    label: "Vesper"
+  },
+  // Mint
+  {
+    id: "mint",
+    background: "#0b2027",
+    foreground: "#f6f1d1",
+    foregroundColors: ["#70e4b0", "#40c9a2", "#32b48c", "#429398", "#cdedf6"],
+    label: "Mint"
+  },
+  // Dracula (renamed)
+  {
+    id: "darkness",
+    background: "#282a36",
+    foreground: "#f8f8f2",
+    foregroundColors: ["#6272a4", "#bd93f9", "#ff79c6", "#ffb86c", "#8be9fd"],
+    label: "Darkness"
   }
 ]
 
