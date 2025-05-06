@@ -606,6 +606,208 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Display cellular automata
         particles[0].display(colors.foreground);
         drawBorder(colors.foreground);
+      } else if (algorithm === 'dither') {
+        // Placeholder for Dither algorithm
+        p.background(r, g, b);
+        
+        // Get foreground color for drawing
+        const [fr, fg, fb] = getRGB(colors.foreground);
+        p.fill(fr, fg, fb);
+        p.noStroke();
+        
+        // Basic dithering pattern placeholder
+        const gridSize = Math.max(5, Math.floor(20 - (normalizedParams.complexity / 10)));
+        for (let x = 0; x < p.width; x += gridSize * 2) {
+          for (let y = 0; y < p.height; y += gridSize * 2) {
+            p.rect(x, y, gridSize, gridSize);
+            p.rect(x + gridSize, y + gridSize, gridSize, gridSize);
+          }
+        }
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'gradients') {
+        // Placeholder for Gradients algorithm
+        p.background(r, g, b);
+        
+        // Create a gradient using foreground colors
+        const gradientColors = colors.foregroundColors || [colors.foreground];
+        p.noStroke();
+        
+        // Draw gradient bands
+        const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
+        const bandHeight = p.height / numBands;
+        
+        for (let i = 0; i < numBands; i++) {
+          const colorIndex = i % gradientColors.length;
+          const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
+          p.fill(cr, cg, cb, 200);
+          p.rect(0, i * bandHeight, p.width, bandHeight);
+        }
+        
+        // Add some animated waves for visual interest
+        time += normalizedParams.speed * 0.01;
+        p.stroke(255, 255, 255, 40);
+        p.strokeWeight(2);
+        p.noFill();
+        
+        for (let i = 0; i < 5; i++) {
+          p.beginShape();
+          for (let x = 0; x < p.width; x += 20) {
+            const y = p.height / 2 + 
+                     Math.sin(x * 0.01 + time + i) * (50 + i * 20) + 
+                     Math.cos(x * 0.02 + time * 0.7) * (30 + i * 15);
+            p.vertex(x, y);
+          }
+          p.endShape();
+        }
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'ascii') {
+        // Placeholder for ASCII art algorithm
+        p.background(r, g, b);
+        
+        // Get foreground color for text
+        const [fr, fg, fb] = getRGB(colors.foreground);
+        p.fill(fr, fg, fb);
+        
+        // ASCII characters from dense to sparse
+        const asciiChars = "@%#*+=-:. ";
+        const charIndex = Math.floor(time * 5) % asciiChars.length;
+        const char = asciiChars[charIndex];
+        
+        // Set text properties
+        const textSize = Math.max(10, Math.floor(normalizedParams.complexity / 5));
+        p.textSize(textSize);
+        p.textAlign(p.CENTER, p.CENTER);
+        
+        // Create ASCII grid
+        const cellSize = textSize * 1.2;
+        for (let y = cellSize; y < p.height; y += cellSize) {
+          for (let x = cellSize; x < p.width; x += cellSize) {
+            // Use noise to select different characters
+            const noiseVal = p.noise(x * 0.01, y * 0.01, time * 0.1);
+            const charToUse = asciiChars.charAt(Math.floor(noiseVal * asciiChars.length));
+            p.text(charToUse, x, y);
+          }
+        }
+        
+        // Animate time
+        time += normalizedParams.speed * 0.01;
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'abstract') {
+        // Abstract algorithm implementation
+        p.background(r, g, b);
+        
+        // Use multiple foreground colors if available
+        const fgColors = colors.foregroundColors || [colors.foreground];
+        
+        // Update time for animation
+        time += normalizedParams.speed * 0.01;
+        
+        // Create abstract shapes based on complexity
+        const numShapes = Math.floor(10 + normalizedParams.complexity / 2);
+        const maxSize = Math.floor(p.width / 4);
+        
+        // Use perlin noise for organic movement
+        for (let i = 0; i < numShapes; i++) {
+          const colorIndex = i % fgColors.length;
+          const [fr, fg, fb] = getRGB(fgColors[colorIndex]);
+          
+          // Vary opacity based on position
+          const alpha = p.map(i, 0, numShapes, 100, 255);
+          
+          // Get noise-based positions
+          const noiseScale = normalizedParams.noiseScale * 0.001;
+          const noiseTime = time * 0.2;
+          
+          const nx = p.noise(i * 0.3, noiseTime) * p.width;
+          const ny = p.noise(i * 0.3 + 100, noiseTime) * p.height;
+          
+          // Choose shape type based on noise
+          const shapeType = Math.floor(p.noise(i * 0.5, time * 0.1) * 4);
+          
+          p.push();
+          p.translate(nx, ny);
+          p.rotate(time * (i % 5) * 0.02);
+          
+          // Size varies with noise
+          const size = p.noise(i * 0.2, time * 0.05) * maxSize;
+          
+          // Draw different abstract shapes
+          p.fill(fr, fg, fb, alpha);
+          p.noStroke();
+          
+          if (shapeType === 0) {
+            // Circles with cutouts
+            p.ellipse(0, 0, size, size);
+            p.fill(r, g, b);
+            p.ellipse(0, 0, size * 0.6, size * 0.6);
+          } 
+          else if (shapeType === 1) {
+            // Random polygon
+            p.beginShape();
+            const vertices = Math.floor(3 + p.noise(i, time * 0.1) * 5);
+            for (let v = 0; v < vertices; v++) {
+              const angle = p.map(v, 0, vertices, 0, p.TWO_PI);
+              const rad = size * 0.5 * (0.5 + p.noise(i, v, time * 0.05) * 0.5);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.vertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          else if (shapeType === 2) {
+            // Curved lines
+            p.noFill();
+            p.stroke(fr, fg, fb, alpha);
+            p.strokeWeight(3 + p.noise(i, time) * 8);
+            
+            p.beginShape();
+            for (let v = 0; v < 10; v++) {
+              const angle = p.map(v, 0, 10, 0, p.TWO_PI);
+              const rad = size * 0.5 * p.noise(i, v * 0.2, time * 0.1);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape();
+          }
+          else {
+            // Abstract blobs
+            p.beginShape();
+            const steps = 15;
+            for (let v = 0; v <= steps; v++) {
+              const angle = p.map(v, 0, steps, 0, p.TWO_PI);
+              // Use perlin noise to create blob-like shapes
+              const radius = size * 0.5 * p.map(p.noise(i * 0.5, time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
+              const vx = p.cos(angle) * radius;
+              const vy = p.sin(angle) * radius;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          
+          p.pop();
+        }
+        
+        // Add some connecting lines between shapes for composition
+        if (normalizedParams.complexity > 50) {
+          p.stroke(255, 255, 255, 30);
+          p.strokeWeight(1);
+          const lineCount = Math.floor(normalizedParams.complexity / 10);
+          
+          for (let i = 0; i < lineCount; i++) {
+            const x1 = p.noise(i * 0.5, time * 0.1) * p.width;
+            const y1 = p.noise(i * 0.5 + 100, time * 0.1) * p.height;
+            const x2 = p.noise(i * 0.5 + 200, time * 0.1) * p.width;
+            const y2 = p.noise(i * 0.5 + 300, time * 0.1) * p.height;
+            
+            p.line(x1, y1, x2, y2);
+          }
+        }
+        
+        drawBorder(colors.foreground);
       } else {
         // Empty state - just clear the canvas
         p.background(r, g, b);

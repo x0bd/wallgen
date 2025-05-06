@@ -4,16 +4,14 @@ import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { SaveProgress } from "@/components/GenerationProgress";
-import { Waves, Hexagon, Wind, Download, Trash2 } from "lucide-react";
+import { Waves, Hexagon, Wind } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
   const { 
     algorithm, 
     setAlgorithm, 
-    saveCurrentState, 
     hasContent, 
-    clearCanvas, 
     isSaving,
     finishSaving 
   } = useAlgorithm();
@@ -40,27 +38,6 @@ export default function Home() {
               onComplete={finishSaving}
               duration={3000} // 3 seconds for saving
             />
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={saveCurrentState}
-              disabled={isSaving}
-              className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-black text-white hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <Download size={16} />
-              Save Wallpaper
-            </button>
-            
-            <button
-              onClick={clearCanvas}
-              disabled={isSaving}
-              className="card-neo px-8 py-4 flex items-center justify-center gap-3 text-sm font-mono uppercase tracking-tight bg-white text-black border border-black/10 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <Trash2 size={16} />
-              Reset Canvas
-            </button>
           </div>
           
           {/* Algorithm Selection */}
@@ -102,6 +79,58 @@ export default function Home() {
             >
               <Wind size={14} className={`${algorithm === 'flowField' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>FLOW FIELD</span>
+            </button>
+            
+            <button 
+              onClick={() => setAlgorithm('dither')}
+              disabled={isSaving}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'dither' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
+            >
+              <span>#</span>
+              <span>DITHER</span>
+            </button>
+            
+            <button 
+              onClick={() => setAlgorithm('gradients')}
+              disabled={isSaving}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'gradients' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
+            >
+              <span>~</span>
+              <span>GRADIENTS</span>
+            </button>
+            
+            <button 
+              onClick={() => setAlgorithm('ascii')}
+              disabled={isSaving}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'ascii' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
+            >
+              <span>@</span>
+              <span>ASCII</span>
+            </button>
+            
+            <button 
+              onClick={() => setAlgorithm('abstract')}
+              disabled={isSaving}
+              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
+                ${algorithm === 'abstract' 
+                  ? 'bg-black text-white dark:bg-white dark:text-black' 
+                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
+                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
+            >
+              <span>*</span>
+              <span>ABSTRACT</span>
             </button>
           </div>
         </div>
