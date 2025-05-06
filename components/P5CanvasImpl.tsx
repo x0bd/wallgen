@@ -597,11 +597,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     sketchInstance.current = new p5(createSketch, canvasRef.current);
     
     // Handler to capture the current canvas state
-    const handleCaptureCanvas = () => {
+    const handleCaptureCanvas = (event: CustomEvent) => {
       if (sketchInstance.current) {
-        console.log("Capturing canvas state");
-        // Save the canvas as a data URL
-        capturedCanvasRef.current = sketchInstance.current.canvas.toDataURL('image/png');
+        const purpose = event.detail?.purpose || 'save';
+        console.log(`Capturing canvas state for ${purpose}`);
+        
+        // Only save to capturedCanvasRef for save operations, not exports
+        if (purpose === 'save') {
+          // Save the canvas as a data URL
+          capturedCanvasRef.current = sketchInstance.current.canvas.toDataURL('image/png');
+        }
       }
     };
     
@@ -642,141 +647,360 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         highQuality = true 
       } = event.detail;
       
-      if (sketchInstance.current && capturedCanvasRef.current) {
+      if (sketchInstance.current) {
         console.log(`Exporting canvas at ${width}x${height} as ${format}`);
         
-        // Create a temporary canvas to resize the image
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const ctx = tempCanvas.getContext('2d') as CanvasRenderingContext2D;
+        // Store original canvas dimensions to restore later
+        const originalWidth = sketchInstance.current.width;
+        const originalHeight = sketchInstance.current.height;
+        const originalHTML = canvasRef.current?.innerHTML || '';
         
-        if (ctx) {
-          // Enable image smoothing for anti-aliasing (based on highQuality)
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = highQuality ? 'high' : 'medium';
+        // Get current colors before creating the offscreen sketch
+        const currentColors = getCurrentColors();
+        
+        // Get original window scroll position
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        
+        // Create an offscreen container for high-res rendering
+        const offscreenContainer = document.createElement('div');
+        offscreenContainer.style.position = 'absolute';
+        offscreenContainer.style.left = '-9999px';
+        offscreenContainer.style.top = '-9999px';
+        offscreenContainer.style.width = `${width}px`;
+        offscreenContainer.style.height = `${height}px`;
+        document.body.appendChild(offscreenContainer);
+        
+        // Pause the main sketch
+        if (sketchInstance.current.isLooping()) {
+          sketchInstance.current.noLoop();
+        }
+        
+        // Create a new high-resolution sketch
+        const highResSketch = new p5((p: any) => {
+          let ready = false;
           
-          // Load the captured image
-          const img = new Image();
-          img.onload = () => {
-            // Fill background based on algorithm context
-            const colors = getCurrentColors();
-            ctx.fillStyle = colors.background;
-            ctx.fillRect(0, 0, width, height);
+          p.setup = () => {
+            p.createCanvas(width, height);
+            p.noLoop(); // We just want one frame
             
-            // Calculate aspect ratios to maintain proportions
-            const aspectRatio = img.width / img.height;
-            const canvasAspectRatio = width / height;
+            // Parse colors properly by creating color objects from hex strings
+            const parsedColors = {
+              background: p.color(currentColors.background),
+              foreground: p.color(currentColors.foreground),
+              foregroundColors: currentColors.foregroundColors?.map(color => p.color(color)) || []
+            };
             
-            let drawWidth, drawHeight, offsetX, offsetY;
+            // Set background color from current sketch
+            p.background(parsedColors.background);
             
-            if (aspectRatio > canvasAspectRatio) {
-              // Image is wider than canvas aspect ratio
-              drawHeight = height;
-              drawWidth = height * aspectRatio;
-              offsetX = (width - drawWidth) / 2;
-              offsetY = 0;
-            } else {
-              // Image is taller than canvas aspect ratio
-              drawWidth = width;
-              drawHeight = width / aspectRatio;
-              offsetX = 0;
-              offsetY = (height - drawHeight) / 2;
-            }
-            
-            // Use multi-step scaling only if highQuality is true and we need to upscale significantly
-            if (highQuality && (width > img.width * 2 || height > img.height * 2)) {
-              // For large upscaling, use a multi-step approach for better quality
-              const tempScaleCanvas = document.createElement('canvas');
-              const tempScaleCtx = tempScaleCanvas.getContext('2d') as CanvasRenderingContext2D;
+            // We'll reuse the same algorithm and parameters but with more particles
+            // for better high-resolution output
+            if (algorithm === 'perlinNoise') {
+              // Create particles (more of them for high-res)
+              const particleCount = Math.min(2000, Math.floor(width * height / 2000));
+              let particles = [];
               
-              if (tempScaleCtx) {
-                // Enable smoothing
-                tempScaleCtx.imageSmoothingEnabled = true;
-                tempScaleCtx.imageSmoothingQuality = 'high';
-                
-                // Stage 1: intermediate size
-                const intermediateScale = 1.5;
-                tempScaleCanvas.width = img.width * intermediateScale;
-                tempScaleCanvas.height = img.height * intermediateScale;
-                
-                // Draw at intermediate size
-                tempScaleCtx.drawImage(img, 0, 0, tempScaleCanvas.width, tempScaleCanvas.height);
-                
-                // Stage 2: final size
-                ctx.drawImage(tempScaleCanvas, offsetX, offsetY, drawWidth, drawHeight);
+              // Create particles with colors
+              const particleColors = [];
+              if (parsedColors.foregroundColors && parsedColors.foregroundColors.length > 0) {
+                parsedColors.foregroundColors.forEach(color => {
+                  particleColors.push(color);
+                });
               } else {
-                // Fallback to single-step if tempScaleCtx fails
-                ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                particleColors.push(parsedColors.foreground);
               }
-            } else {
-              // For normal scaling or downscaling, single step is fine
-              ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+              
+              console.log("High-res export using colors:", 
+                parsedColors.foregroundColors?.map(c => [p.red(c), p.green(c), p.blue(c)]) || 
+                [[p.red(parsedColors.foreground), p.green(parsedColors.foreground), p.blue(parsedColors.foreground)]]
+              );
+              
+              // Create high-res particles
+              for (let i = 0; i < particleCount; i++) {
+                const color = particleColors[Math.floor(p.random(particleColors.length))];
+                const particle = {
+                  x: p.random(width),
+                  y: p.random(height),
+                  color: color,
+                  size: 2
+                };
+                particles.push(particle);
+              }
+              
+              // Create high-res perlin noise field
+              const moveSpeed = 0.4;
+              const moveScale = 800;
+              
+              // Run a number of iterations to create a good image
+              for (let iter = 0; iter < 100; iter++) {
+                particles.forEach(particle => {
+                  // Update position based on Perlin noise
+                  const angle = p.noise(particle.x / moveScale, particle.y / moveScale) * p.TWO_PI * moveScale;
+                  particle.x += p.cos(angle) * moveSpeed;
+                  particle.y += p.sin(angle) * moveSpeed;
+                  
+                  // Reset particle if it goes off-screen
+                  if (particle.x > width || particle.x < 0 || particle.y > height || particle.y < 0 || p.random(1) < 0.001) {
+                    particle.x = p.random(width);
+                    particle.y = p.random(height);
+                  }
+                  
+                  // Draw the particle
+                  p.fill(particle.color);
+                  p.noStroke();
+                  p.ellipse(particle.x, particle.y, particle.size, particle.size);
+                });
+              }
+            } else if (algorithm === 'flowField') {
+              // Create flow field particles (more for high-res)
+              const particleCount = Math.min(500, Math.floor(width * height / 10000));
+              let particles = [];
+              
+              // Create particles
+              for (let i = 0; i < particleCount; i++) {
+                const pos = p.createVector(p.random(width), p.random(height));
+                const prevPos = pos.copy();
+                const vel = p.createVector(0, 0);
+                const maxSpeed = p.random(2, 4);
+                
+                // Use a random color from foregroundColors if available
+                let color;
+                if (parsedColors.foregroundColors && parsedColors.foregroundColors.length > 0) {
+                  color = parsedColors.foregroundColors[Math.floor(p.random(parsedColors.foregroundColors.length))];
+                } else {
+                  color = parsedColors.foreground;
+                }
+                
+                const alpha = p.random(20, 100);
+                const strokeWeight = p.random(0.1, 1.5);
+                
+                particles.push({ pos, prevPos, vel, maxSpeed, color, alpha, strokeWeight });
+              }
+              
+              // Run iterations to create flow field
+              const noiseScale = params.noiseScale / 100 * 0.01;
+              const speed = params.speed / 100 * 5;
+              
+              for (let iter = 0; iter < 200; iter++) {
+                const time = iter * 0.1;
+                
+                particles.forEach(particle => {
+                  // Save previous position
+                  particle.prevPos = particle.pos.copy();
+                  
+                  // Calculate direction from noise
+                  const angle = p.noise(
+                    particle.pos.x * noiseScale,
+                    particle.pos.y * noiseScale,
+                    time * 0.01
+                  ) * p.TWO_PI * 2;
+                  
+                  const force = p.Vector.fromAngle(angle);
+                  force.mult(speed * 0.5);
+                  
+                  // Update velocity
+                  const acc = force.copy();
+                  particle.vel.add(acc);
+                  particle.vel.limit(particle.maxSpeed);
+                  particle.pos.add(particle.vel);
+                  
+                  // Reset if out of bounds
+                  if (particle.pos.x < 0 || particle.pos.x > width || particle.pos.y < 0 || particle.pos.y > height) {
+                    particle.pos = p.createVector(p.random(width), p.random(height));
+                    particle.prevPos = particle.pos.copy();
+                  }
+                  
+                  // Draw the particle with proper color handling
+                  p.stroke(particle.color, particle.alpha);
+                  p.strokeWeight(particle.strokeWeight);
+                  p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
+                });
+              }
+            } else if (algorithm === 'cellular') {
+              // Create cellular automata at higher resolution
+              const complexity = Math.floor((params.complexity / 100) * 10) + 1;
+              const cellSize = Math.floor(16 - (complexity * 0.5));
+              const scaledCellSize = Math.max(2, Math.floor(cellSize * width / originalWidth));
+              
+              const cols = Math.floor(width / scaledCellSize);
+              const rows = Math.floor(height / scaledCellSize);
+              
+              // Initialize with random cells
+              let grid = Array(cols).fill(0).map(() => 
+                Array(rows).fill(0).map(() => p.random() > 0.5 ? 1 : 0)
+              );
+              
+              // Run iterations to evolve the cellular automata
+              for (let iter = 0; iter < 20; iter++) {
+                const nextGrid = Array(cols).fill(0).map(() => Array(rows).fill(0));
+                
+                // Update grid
+                for (let i = 0; i < cols; i++) {
+                  for (let j = 0; j < rows; j++) {
+                    let neighbors = 0;
+                    
+                    // Count neighbors (8-way)
+                    for (let x = -1; x <= 1; x++) {
+                      for (let y = -1; y <= 1; y++) {
+                        if (x === 0 && y === 0) continue;
+                        
+                        const col = (i + x + cols) % cols;
+                        const row = (j + y + rows) % rows;
+                        
+                        neighbors += grid[col][row];
+                      }
+                    }
+                    
+                    // Apply rules based on complexity
+                    if (complexity <= 5) {
+                      // Simple Conway's Game of Life rules
+                      if (grid[i][j] === 1 && (neighbors < 2 || neighbors > 3)) {
+                        nextGrid[i][j] = 0;
+                      } else if (grid[i][j] === 0 && neighbors === 3) {
+                        nextGrid[i][j] = 1;
+                      } else {
+                        nextGrid[i][j] = grid[i][j];
+                      }
+                    } else {
+                      // More complex rules
+                      if (grid[i][j] === 1 && (neighbors < 2 || neighbors > (3 + Math.floor(complexity / 3)))) {
+                        nextGrid[i][j] = 0;
+                      } else if (grid[i][j] === 0 && (neighbors === 3 || neighbors === Math.floor(complexity / 2))) {
+                        nextGrid[i][j] = 1;
+                      } else {
+                        nextGrid[i][j] = grid[i][j];
+                      }
+                    }
+                  }
+                }
+                
+                // Swap grids
+                grid = nextGrid;
+              }
+              
+              // Draw the final grid with proper colors
+              p.noStroke();
+              p.fill(parsedColors.foreground);
+              
+              for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                  if (grid[i][j] === 1) {
+                    p.rect(i * scaledCellSize, j * scaledCellSize, scaledCellSize, scaledCellSize);
+                  }
+                }
+              }
             }
             
-            // Apply subtle border if requested
-            if (addBorder && format !== 'svg') {
-              // Add a subtle border effect
-              const foregroundColor = colors.foreground;
-              const r = parseInt(foregroundColor.slice(1, 3), 16);
-              const g = parseInt(foregroundColor.slice(3, 5), 16);
-              const b = parseInt(foregroundColor.slice(5, 7), 16);
-              
-              ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
-              ctx.lineWidth = Math.max(1, Math.floor(Math.min(width, height) / 400)); // Scale border with image size
-              ctx.beginPath();
-              ctx.rect(0, 0, width, height);
-              ctx.stroke();
-            }
+            // Signal ready to capture after drawing is complete
+            ready = true;
+          };
+        }, offscreenContainer);
+        
+        // Wait for the high-res render to complete
+        const checkReady = setInterval(() => {
+          if (highResSketch && highResSketch.canvas) {
+            clearInterval(checkReady);
+            
+            // Capture the high-res canvas
+            const highResDataURL = highResSketch.canvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`, 
+              format === 'jpg' ? 0.95 : undefined);
             
             // Add metadata if requested
             if (includeSourceCode) {
-              // Add algorithm name and parameters as small text in corner with better styling
-              const infoHeight = Math.max(24, Math.floor(height / 30));
-              const infoWidth = Math.max(200, Math.floor(width / 7));
-              const fontSize = Math.max(10, Math.floor(infoHeight * 0.5));
+              const tempCanvas = document.createElement('canvas');
+              tempCanvas.width = width;
+              tempCanvas.height = height;
+              const ctx = tempCanvas.getContext('2d') as CanvasRenderingContext2D;
               
-              // Add semi-transparent background for text
-              ctx.fillStyle = 'rgba(0,0,0,0.5)';
-              ctx.fillRect(5, height - infoHeight - 5, infoWidth, infoHeight);
-              
-              // Add text with proper sizing
-              ctx.fillStyle = 'white';
-              ctx.font = `${fontSize}px monospace`;
-              ctx.fillText(`Algorithm: ${algorithm} | WallGen`, 10, height - infoHeight/2);
-            }
-            
-            // Convert to the desired format with quality based on setting
-            let dataURL;
-            if (format === 'jpg') {
-              // JPEG quality based on highQuality setting (0.95 for high, 0.85 for standard)
-              dataURL = tempCanvas.toDataURL('image/jpeg', highQuality ? 0.95 : 0.85);
-            } else if (format === 'svg') {
-              // SVG not directly supported, fallback to PNG
-              console.warn('SVG export not supported directly, using PNG instead');
-              dataURL = tempCanvas.toDataURL('image/png');
+              if (ctx) {
+                // Load the high-res image
+                const img = new Image();
+                img.onload = () => {
+                  // Draw the high-res image
+                  ctx.drawImage(img, 0, 0);
+                  
+                  // Add algorithm name and parameters as small text in corner
+                  const infoHeight = Math.max(24, Math.floor(height / 30));
+                  const infoWidth = Math.max(200, Math.floor(width / 7));
+                  const fontSize = Math.max(10, Math.floor(infoHeight * 0.5));
+                  
+                  // Add semi-transparent background for text
+                  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                  ctx.fillRect(5, height - infoHeight - 5, infoWidth, infoHeight);
+                  
+                  // Add text with proper sizing
+                  ctx.fillStyle = 'white';
+                  ctx.font = `${fontSize}px monospace`;
+                  ctx.fillText(`Algorithm: ${algorithm} | WallGen`, 10, height - infoHeight/2);
+                  
+                  // Create download link
+                  const finalDataURL = tempCanvas.toDataURL(`image/${format === 'svg' ? 'png' : format}`, 
+                    format === 'jpg' ? 0.95 : undefined);
+                  
+                  // Create download link
+                  downloadImage(finalDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
+                };
+                img.src = highResDataURL;
+              } else {
+                // Fallback to original image if context fails
+                downloadImage(highResDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
+              }
             } else {
-              // Default to PNG
-              dataURL = tempCanvas.toDataURL('image/png');
+              // Download directly without metadata
+              downloadImage(highResDataURL, `${filename}.${format === 'svg' ? 'png' : format}`);
             }
-            
-            // Create a download link
-            const link = document.createElement('a');
-            link.href = dataURL;
-            link.download = `${filename}.${format === 'svg' ? 'png' : format}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
             
             // Clean up
-            capturedCanvasRef.current = null;
-          };
+            highResSketch.remove();
+            document.body.removeChild(offscreenContainer);
+            
+            // Resume the main sketch if it was looping
+            if (sketchInstance.current) {
+              sketchInstance.current.loop();
+            }
+            
+            // Restore scroll position
+            window.scrollTo(scrollX, scrollY);
+          }
+        }, 100);
+        
+        // Timeout if it takes too long
+        setTimeout(() => {
+          clearInterval(checkReady);
           
-          img.src = capturedCanvasRef.current;
-        }
+          // No longer using capturedCanvasRef for exports
+          console.warn("High-resolution export timed out");
+          
+          // Clean up
+          if (highResSketch) {
+            highResSketch.remove();
+          }
+          if (document.body.contains(offscreenContainer)) {
+            document.body.removeChild(offscreenContainer);
+          }
+          
+          // Resume the main sketch
+          if (sketchInstance.current) {
+            sketchInstance.current.loop();
+          }
+          
+          // Restore scroll position
+          window.scrollTo(scrollX, scrollY);
+        }, 5000);
       } else {
-        console.error('Cannot export: Canvas not captured or not available');
+        console.error('Cannot export: Canvas not available');
       }
+    };
+    
+    // Helper function to download an image
+    const downloadImage = (dataURL: string, filename: string) => {
+      const link = document.createElement('a');
+      link.href = dataURL;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     };
     
     // Handler for complete canvas reset

@@ -226,8 +226,10 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   
   // Save current state function - replaces generate
   const saveCurrentState = useCallback(() => {
-    // First, capture the current canvas state by dispatching a capture event
-    const captureEvent = new CustomEvent('wallgen-capture-canvas', {});
+    // First, capture the current canvas state 
+    const captureEvent = new CustomEvent('wallgen-capture-canvas', {
+      detail: { purpose: 'save' }
+    });
     window.dispatchEvent(captureEvent);
     
     // Then start the saving animation
@@ -343,7 +345,9 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     highQuality?: boolean
   }) => {
     // First, capture the current canvas state 
-    const captureEvent = new CustomEvent('wallgen-capture-canvas', {});
+    const captureEvent = new CustomEvent('wallgen-capture-canvas', {
+      detail: { purpose: 'export' }
+    });
     window.dispatchEvent(captureEvent);
     
     // Then start the saving animation
