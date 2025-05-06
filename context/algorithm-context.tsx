@@ -165,6 +165,11 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   
   // Save current state function - replaces generate
   const saveCurrentState = useCallback(() => {
+    // First, capture the current canvas state by dispatching a capture event
+    const captureEvent = new CustomEvent('wallgen-capture-canvas', {});
+    window.dispatchEvent(captureEvent);
+    
+    // Then start the saving animation
     setIsSaving(true);
     
     // After showing the saving animation for a bit, trigger the actual download
@@ -178,7 +183,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(event);
       
       setNeedsRedraw(true);
-    }, 1000); // Wait 1 second before triggering the download to show animation
+    }, 2000); // Wait 2 seconds before triggering the download to show animation
   }, [algorithm])
   
   // Function to mark saving as complete

@@ -19,6 +19,9 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
   // Initialize function reference (scoped outside sketch for access in useEffect)
   const initFunctionRef = useRef<(() => void) | null>(null);
   
+  // Ref to store captured canvas data for saving
+  const capturedCanvasRef = useRef<string | null>(null);
+  
   // Get algorithm context data
   const { 
     algorithm, 
@@ -30,6 +33,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     selectedColorId,
     isSaving
   } = useAlgorithm();
+
+  // Ref to hold the latest isSaving value for the draw loop, to avoid re-creating the sketch
+  const isSavingRef = useRef(isSaving);
+  useEffect(() => {
+    isSavingRef.current = isSaving;
+  }, [isSaving]);
 
   // Load p5.js dynamically on the client side only
   useEffect(() => {
@@ -456,6 +465,9 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       // Get background color
       const [r, g, b] = getRGB(colors.background);
       
+      // Current saving state from ref
+      const currentIsSaving = isSavingRef.current;
+
       // Begin logic for drawing
       if (algorithm === 'perlinNoise') {
         // Only set background once at the beginning, like in reference
@@ -483,7 +495,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         const moveScale = 800; // Fixed value from reference
         
         // Update the time factor based on speed parameter for user control
-        if (isSaving) {
+        if (currentIsSaving) {
           // During saving, possibly speed up animation for better effect
           time += normalizedParams.speed * 0.02;
         } else {
@@ -506,7 +518,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // --- Simulation Steps ---
         // Use a fixed number of steps
-        const simulationSteps = isSaving ? 15 : 8;
+        const simulationSteps = currentIsSaving ? 15 : 8;
         
         // Run simulation internally
         for (let step = 0; step < simulationSteps; step++) {
@@ -533,7 +545,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         p.background(r, g, b);
         
         // Run cellular automata simulation steps
-        const simulationSteps = isSaving ? 15 : 8;
+        const simulationSteps = currentIsSaving ? 15 : 8;
         for (let step = 0; step < simulationSteps; step++) {
           // Only update cellular every few sim steps based on speed param for visual stability
           if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
@@ -552,7 +564,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       
       // Control animation loop - always animate in continuous mode
       // Use appropriate frame rate
-      p.frameRate(isSaving ? 60 : 24); // Higher framerate during saving for smooth capture
+      p.frameRate(currentIsSaving ? 60 : 24); // Higher framerate during saving for smooth capture
     };
     
     // Draw a border around the canvas
@@ -576,7 +588,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         initFunctionRef.current();
       }
     };
-  }, [algorithm, params, getCurrentColors, hasContent, selectedColorId, isSaving]);
+  }, [algorithm, params, getCurrentColors, hasContent, selectedColorId]);
 
   // Create the p5 instance when the p5 module is loaded
   useEffect(() => {
@@ -585,22 +597,46 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     // Create a new p5 instance
     sketchInstance.current = new p5(createSketch, canvasRef.current);
     
+    // Handler to capture the current canvas state
+    const handleCaptureCanvas = () => {
+      if (sketchInstance.current) {
+        console.log("Capturing canvas state");
+        // Save the canvas as a data URL
+        capturedCanvasRef.current = sketchInstance.current.canvas.toDataURL('image/png');
+      }
+    };
+    
     // Add event listener for saving the canvas
     const handleSaveCanvas = (event: CustomEvent) => {
       if (sketchInstance.current) {
         const filename = event.detail?.filename || `wallgen-${Date.now()}`;
         console.log("Saving canvas as:", filename);
         
-        // Use p5's save method to trigger the download
-        sketchInstance.current.save(filename);
+        if (capturedCanvasRef.current) {
+          // Create a temporary link to download the captured canvas
+          const link = document.createElement('a');
+          link.href = capturedCanvasRef.current;
+          link.download = `${filename}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Clear the captured canvas reference
+          capturedCanvasRef.current = null;
+        } else {
+          // Fallback to p5's save method if no capture is available
+          sketchInstance.current.save(filename);
+        }
       }
     };
     
-    // Add the event listener
+    // Add the event listeners
+    window.addEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
     window.addEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
     
     return () => {
       // Cleanup
+      window.removeEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
       window.removeEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
       
       if (sketchInstance.current) {
