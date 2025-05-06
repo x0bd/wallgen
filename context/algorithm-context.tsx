@@ -49,6 +49,15 @@ interface AlgorithmContextState {
   clearCanvas: () => void
   finishSaving: () => void
   triggerInitialization: () => void
+  exportCanvas: (options: { 
+    width: number, 
+    height: number, 
+    format: string, 
+    filename: string, 
+    includeSourceCode?: boolean,
+    addBorder?: boolean,
+    highQuality?: boolean
+  }) => void
 }
 
 // Create context with default values
@@ -323,6 +332,40 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     }
   }, [colorOptions, selectedColorId, isInverted])
   
+  // Export canvas with custom dimensions and format
+  const exportCanvas = useCallback((options: { 
+    width: number, 
+    height: number, 
+    format: string, 
+    filename: string,
+    includeSourceCode?: boolean,
+    addBorder?: boolean,
+    highQuality?: boolean
+  }) => {
+    // First, capture the current canvas state 
+    const captureEvent = new CustomEvent('wallgen-capture-canvas', {});
+    window.dispatchEvent(captureEvent);
+    
+    // Then start the saving animation
+    setIsSaving(true);
+    
+    // After a brief delay, trigger export with custom options
+    setTimeout(() => {
+      const exportEvent = new CustomEvent('wallgen-export-canvas', {
+        detail: {
+          ...options,
+          algorithm
+        }
+      });
+      window.dispatchEvent(exportEvent);
+      
+      // Set a timeout to finish the saving state
+      setTimeout(() => {
+        setIsSaving(false);
+      }, 1500);
+    }, 500);
+  }, [algorithm]);
+
   return (
     <AlgorithmContext.Provider 
       value={{
@@ -346,7 +389,8 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
         saveCurrentState,
         clearCanvas,
         finishSaving,
-        triggerInitialization
+        triggerInitialization,
+        exportCanvas
       }}
     >
       {children}

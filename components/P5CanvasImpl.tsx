@@ -570,14 +570,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       p.frameRate(currentIsSaving ? 60 : 24); // Higher framerate during saving for smooth capture
     };
     
-    // Draw a border around the canvas
+    // Draw a border around the canvas - now disabled as per user request
     const drawBorder = (color: any) => {
-      const [r, g, b] = getRGB(color);
-      p.stroke(r, g, b, 60);
-      p.strokeWeight(1);
-      p.noFill();
-      p.rect(0, 0, p.width, p.height);
-      p.noStroke();
+      // Border drawing disabled
+      return;
     };
     
     // Handle window resize
@@ -633,6 +629,156 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     };
     
+    // Handler for exporting canvas with custom settings
+    const handleExportCanvas = (event: CustomEvent) => {
+      const { 
+        width, 
+        height, 
+        format, 
+        filename, 
+        algorithm, 
+        includeSourceCode,
+        addBorder = true,
+        highQuality = true 
+      } = event.detail;
+      
+      if (sketchInstance.current && capturedCanvasRef.current) {
+        console.log(`Exporting canvas at ${width}x${height} as ${format}`);
+        
+        // Create a temporary canvas to resize the image
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const ctx = tempCanvas.getContext('2d') as CanvasRenderingContext2D;
+        
+        if (ctx) {
+          // Enable image smoothing for anti-aliasing (based on highQuality)
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = highQuality ? 'high' : 'medium';
+          
+          // Load the captured image
+          const img = new Image();
+          img.onload = () => {
+            // Fill background based on algorithm context
+            const colors = getCurrentColors();
+            ctx.fillStyle = colors.background;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Calculate aspect ratios to maintain proportions
+            const aspectRatio = img.width / img.height;
+            const canvasAspectRatio = width / height;
+            
+            let drawWidth, drawHeight, offsetX, offsetY;
+            
+            if (aspectRatio > canvasAspectRatio) {
+              // Image is wider than canvas aspect ratio
+              drawHeight = height;
+              drawWidth = height * aspectRatio;
+              offsetX = (width - drawWidth) / 2;
+              offsetY = 0;
+            } else {
+              // Image is taller than canvas aspect ratio
+              drawWidth = width;
+              drawHeight = width / aspectRatio;
+              offsetX = 0;
+              offsetY = (height - drawHeight) / 2;
+            }
+            
+            // Use multi-step scaling only if highQuality is true and we need to upscale significantly
+            if (highQuality && (width > img.width * 2 || height > img.height * 2)) {
+              // For large upscaling, use a multi-step approach for better quality
+              const tempScaleCanvas = document.createElement('canvas');
+              const tempScaleCtx = tempScaleCanvas.getContext('2d') as CanvasRenderingContext2D;
+              
+              if (tempScaleCtx) {
+                // Enable smoothing
+                tempScaleCtx.imageSmoothingEnabled = true;
+                tempScaleCtx.imageSmoothingQuality = 'high';
+                
+                // Stage 1: intermediate size
+                const intermediateScale = 1.5;
+                tempScaleCanvas.width = img.width * intermediateScale;
+                tempScaleCanvas.height = img.height * intermediateScale;
+                
+                // Draw at intermediate size
+                tempScaleCtx.drawImage(img, 0, 0, tempScaleCanvas.width, tempScaleCanvas.height);
+                
+                // Stage 2: final size
+                ctx.drawImage(tempScaleCanvas, offsetX, offsetY, drawWidth, drawHeight);
+              } else {
+                // Fallback to single-step if tempScaleCtx fails
+                ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+              }
+            } else {
+              // For normal scaling or downscaling, single step is fine
+              ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            }
+            
+            // Apply subtle border if requested
+            if (addBorder && format !== 'svg') {
+              // Add a subtle border effect
+              const foregroundColor = colors.foreground;
+              const r = parseInt(foregroundColor.slice(1, 3), 16);
+              const g = parseInt(foregroundColor.slice(3, 5), 16);
+              const b = parseInt(foregroundColor.slice(5, 7), 16);
+              
+              ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+              ctx.lineWidth = Math.max(1, Math.floor(Math.min(width, height) / 400)); // Scale border with image size
+              ctx.beginPath();
+              ctx.rect(0, 0, width, height);
+              ctx.stroke();
+            }
+            
+            // Add metadata if requested
+            if (includeSourceCode) {
+              // Add algorithm name and parameters as small text in corner with better styling
+              const infoHeight = Math.max(24, Math.floor(height / 30));
+              const infoWidth = Math.max(200, Math.floor(width / 7));
+              const fontSize = Math.max(10, Math.floor(infoHeight * 0.5));
+              
+              // Add semi-transparent background for text
+              ctx.fillStyle = 'rgba(0,0,0,0.5)';
+              ctx.fillRect(5, height - infoHeight - 5, infoWidth, infoHeight);
+              
+              // Add text with proper sizing
+              ctx.fillStyle = 'white';
+              ctx.font = `${fontSize}px monospace`;
+              ctx.fillText(`Algorithm: ${algorithm} | WallGen`, 10, height - infoHeight/2);
+            }
+            
+            // Convert to the desired format with quality based on setting
+            let dataURL;
+            if (format === 'jpg') {
+              // JPEG quality based on highQuality setting (0.95 for high, 0.85 for standard)
+              dataURL = tempCanvas.toDataURL('image/jpeg', highQuality ? 0.95 : 0.85);
+            } else if (format === 'svg') {
+              // SVG not directly supported, fallback to PNG
+              console.warn('SVG export not supported directly, using PNG instead');
+              dataURL = tempCanvas.toDataURL('image/png');
+            } else {
+              // Default to PNG
+              dataURL = tempCanvas.toDataURL('image/png');
+            }
+            
+            // Create a download link
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = `${filename}.${format === 'svg' ? 'png' : format}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up
+            capturedCanvasRef.current = null;
+          };
+          
+          img.src = capturedCanvasRef.current;
+        }
+      } else {
+        console.error('Cannot export: Canvas not captured or not available');
+      }
+    };
+    
     // Handler for complete canvas reset
     const handleResetCanvas = () => {
       if (sketchInstance.current) {
@@ -655,12 +801,14 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     // Add the event listeners
     window.addEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
     window.addEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+    window.addEventListener('wallgen-export-canvas', handleExportCanvas as EventListener);
     window.addEventListener('wallgen-reset-canvas', handleResetCanvas as EventListener);
     
     return () => {
       // Cleanup
       window.removeEventListener('wallgen-capture-canvas', handleCaptureCanvas as EventListener);
       window.removeEventListener('wallgen-save-canvas', handleSaveCanvas as EventListener);
+      window.removeEventListener('wallgen-export-canvas', handleExportCanvas as EventListener);
       window.removeEventListener('wallgen-reset-canvas', handleResetCanvas as EventListener);
       
       if (sketchInstance.current) {
@@ -668,7 +816,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         sketchInstance.current = null;
       }
     };
-  }, [p5, createSketch]);
+  }, [p5, createSketch, getCurrentColors]);
 
   // Handle redraw requests
   useEffect(() => {
