@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react'
 
 // Define algorithm types
 export type AlgorithmType = 'perlinNoise' | 'cellular' | 'flowField'
@@ -89,6 +89,16 @@ const defaultColorOptions: ColorOption[] = [
   }
 ]
 
+// Debounce function helper
+const debounce = (func: Function, wait: number) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return (...args: any[]) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+};
+
 // Provider component
 export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Algorithm state
@@ -108,12 +118,38 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   const [isGenerating, setIsGenerating] = useState(false)
   const [initSignal, setInitSignal] = useState(0); // State to trigger initialization
 
-  // Update parameters - also trigger redraw if content exists
+  // Debounced initialization
+  const debouncedInitRef = useRef<ReturnType<typeof debounce> | null>(null);
+  
+  // Create debounced initialization function
+  useEffect(() => {
+    debouncedInitRef.current = debounce(() => {
+      if (hasContent) {
+        setInitSignal(s => s + 1);
+        setNeedsRedraw(true);
+      }
+    }, 250); // 250ms debounce
+
+    return () => {
+      debouncedInitRef.current = null;
+    };
+  }, [hasContent]);
+
+  // Update parameters - use debounced initialization to avoid performance drops
   const updateParams = useCallback((updates: Partial<AlgorithmParams>) => {
     setParams(prev => ({ ...prev, ...updates }))
-    if (hasContent) {
-      setInitSignal(s => s + 1); // Trigger re-initialization
-      setNeedsRedraw(true);
+    
+    // For immediate updates (like checkboxes)
+    if (updates.transparentBackground !== undefined || 
+        updates.randomizeOnLoad !== undefined || 
+        updates.autoAdjust !== undefined) {
+      if (hasContent) {
+        setInitSignal(s => s + 1);
+        setNeedsRedraw(true);
+      }
+    } else {
+      // For slider controls, use debounced update
+      debouncedInitRef.current?.();
     }
   }, [hasContent])
   
@@ -121,7 +157,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   const resetParams = useCallback(() => {
     setParams(defaultParams)
     if (hasContent) {
-      setInitSignal(s => s + 1); // Trigger re-initialization
+      setInitSignal(s => s + 1);
       setNeedsRedraw(true);
     }
   }, [hasContent])
@@ -147,7 +183,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 
   // Function to explicitly trigger initialization (used by parameter changes)
   const triggerInitialization = useCallback(() => {
-     setInitSignal(s => s + 1);
+    setInitSignal(s => s + 1);
   }, []);
   
   // Add custom color
@@ -196,7 +232,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Update selected color - trigger redraw
   const updateSelectedColorId = useCallback((id: string) => {
     setSelectedColorId(id);
-     if (hasContent) {
+    if (hasContent) {
       setInitSignal(s => s + 1);
       setNeedsRedraw(true);
     }
@@ -205,7 +241,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
   // Update inversion - trigger redraw
   const updateIsInverted = useCallback((inverted: boolean) => {
     setIsInverted(inverted);
-     if (hasContent) {
+    if (hasContent) {
       setInitSignal(s => s + 1);
       setNeedsRedraw(true);
     }

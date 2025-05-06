@@ -62,6 +62,14 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     let quadtree: QuadTree<any> | null = null;
     const QUAD_CAP = 8; // Capacity of quadtree nodes
     
+    // Performance optimization flags
+    let lastParams: any = { 
+      ...params,
+      algorithm,
+      selectedColorId
+    };
+    let needsParticleReset = false;
+    
     // Get normalized parameter values
     const getNormalizedParams = () => {
       return {
@@ -334,6 +342,41 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     const initializeParticles = () => {
       const normalizedParams = getNormalizedParams();
       
+      // Check if we really need to recreate particles (for performance)
+      // Only recreate particles if certain params have changed significantly
+      const significantChange = (
+        algorithm !== lastParams.algorithm ||
+        Math.abs(params.density - lastParams.density) > 5 ||
+        Math.abs(params.complexity - lastParams.complexity) > 5 ||
+        params.randomizeOnLoad !== lastParams.randomizeOnLoad ||
+        selectedColorId !== lastParams.selectedColorId
+      );
+      
+      // Store current params for future comparison
+      lastParams = { 
+        ...params, 
+        algorithm, 
+        selectedColorId 
+      };
+      
+      // If we don't need to recreate particles, just update existing ones
+      if (!significantChange && particles.length > 0 && !needsParticleReset) {
+        resetQuadtree();
+        
+        // Reinsert existing particles into quadtree
+        if (algorithm === 'perlinNoise') {
+          for (const particle of particles) {
+            quadtree!.insert(particle);
+          }
+        }
+        
+        // Reset time but keep particles
+        time = 0;
+        return;
+      }
+      
+      // If we get here, we need to recreate particles
+      needsParticleReset = false;
       particles = [];
       
       // Reset quadtree
@@ -350,7 +393,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         if (colors.foregroundColors && colors.foregroundColors.length > 0) {
           // Use the provided foreground colors
           colors.foregroundColors.forEach(color => {
-            particleColors.push(p.color(color));
+            particleColors.push(color);
           });
         } else if (selectedColorId === "bw" || selectedColorId === "wb") {
           // Use exact hex colors from reference
@@ -569,14 +612,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     }
   }, [needsRedraw]);
 
-  // Handle initialization triggers
+  // Handle initialization triggers with performance optimization
   useEffect(() => {
     if (!sketchInstance.current || !initFunctionRef.current) return;
     
-    console.log("Initializing particles from trigger...");
-    initFunctionRef.current();
-    sketchInstance.current.redraw();
-  }, [triggerInitialization]);
+    if (!isGenerating) {
+      console.log("Initializing particles from trigger...");
+      initFunctionRef.current();
+      sketchInstance.current.redraw();
+    }
+  }, [triggerInitialization, isGenerating]);
 
   return (
     <div ref={canvasRef} className={className} style={{ width: '100%', height: '100%' }}>
