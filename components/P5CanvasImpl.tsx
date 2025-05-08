@@ -234,97 +234,228 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     }
     
-    // Cellular Automata Implementation
+    // Cellular Automata Implementation - Based on wander.java reference
     class CellularAutomata {
-      grid: number[][];
-      nextGrid: number[][];
+      grid: Square[][];
+      wands: Wand[];
       cellSize: number;
       cols: number;
       rows: number;
+      hideSmallMovements: boolean = true;
+      showWand: boolean;
       
       constructor(cellSize: number) {
         this.cellSize = cellSize;
         this.cols = Math.floor(p.width / this.cellSize);
         this.rows = Math.floor(p.height / this.cellSize);
         
-        // Initialize grid with random cells
-        this.grid = Array(this.cols).fill(0).map(() => 
-          Array(this.rows).fill(0).map(() => p.random() > 0.5 ? 1 : 0)
+        // Initialize grid
+        this.grid = Array(this.cols).fill(null).map((_, j) => 
+          Array(this.rows).fill(null).map((_, i) => 
+            new Square(
+              j * this.cellSize + (this.cellSize / 2), 
+              i * this.cellSize + (this.cellSize / 2),
+              this.cellSize,
+              this.cellSize,
+              j,
+              i
+            )
+          )
         );
         
-        this.nextGrid = Array(this.cols).fill(0).map(() => 
-          Array(this.rows).fill(0)
-        );
+        // Initialize wands (automata)
+        this.wands = [];
+        
+        // Get showWands setting from params
+        this.showWand = params.showWands || false;
       }
       
-      update(complexity: number) {
-        // Copy current grid to next grid
-        for (let i = 0; i < this.cols; i++) {
-          for (let j = 0; j < this.rows; j++) {
-            let neighbors = 0;
-            
-            // Count neighbors (8-way)
-            for (let x = -1; x <= 1; x++) {
-              for (let y = -1; y <= 1; y++) {
-                if (x === 0 && y === 0) continue; // Skip self
-                
-                const col = (i + x + this.cols) % this.cols;
-                const row = (j + y + this.rows) % this.rows;
-                
-                neighbors += this.grid[col][row];
-              }
-            }
-            
-            // Apply rules based on complexity
-            // Higher complexity = more complex rules
-            if (complexity <= 5) {
-              // Simple Conway's Game of Life rules
-              if (this.grid[i][j] === 1 && (neighbors < 2 || neighbors > 3)) {
-                this.nextGrid[i][j] = 0; // Die: underpopulation or overpopulation
-              } else if (this.grid[i][j] === 0 && neighbors === 3) {
-                this.nextGrid[i][j] = 1; // Born: reproduction
-              } else {
-                this.nextGrid[i][j] = this.grid[i][j]; // Stay the same
-              }
-            } else {
-              // More complex rules for higher complexity values
-              if (this.grid[i][j] === 1 && (neighbors < 2 || neighbors > (3 + Math.floor(complexity / 3)))) {
-                this.nextGrid[i][j] = 0;
-              } else if (this.grid[i][j] === 0 && (neighbors === 3 || neighbors === Math.floor(complexity / 2))) {
-                this.nextGrid[i][j] = 1;
-              } else {
-                this.nextGrid[i][j] = this.grid[i][j];
-              }
-            }
-          }
+      update(complexity: number, speed: number) {
+        // Move each wand
+        for (const wand of this.wands) {
+          wand.move(speed);
         }
-        
-        // Swap grids
-        [this.grid, this.nextGrid] = [this.nextGrid, this.grid];
       }
       
       display(foregroundColor: any) {
-        p.noStroke();
-        const [r, g, b] = getRGB(foregroundColor);
-        p.fill(r, g, b, 200);
-        
-        for (let i = 0; i < this.cols; i++) {
-          for (let j = 0; j < this.rows; j++) {
-            if (this.grid[i][j] === 1) {
-              p.rect(i * this.cellSize, j * this.cellSize, this.cellSize, this.cellSize);
+        // Draw cells
+        for (let j = 0; j < this.cols; j++) {
+          for (let i = 0; i < this.rows; i++) {
+            const square = this.grid[j][i];
+            
+            if (square.engaged) {
+              const [r, g, b] = getRGB(square.col);
+              p.stroke(r * 0.8, g * 0.8, b * 0.8);
+              p.fill(square.col);
+            } else {
+              const [r, g, b] = getRGB(p.color(getCurrentColors().background));
+              p.stroke(r, g, b);
+              p.fill(r, g, b);
             }
+            
+            p.ellipseMode(p.RADIUS);
+            p.ellipse(square.x, square.y, square.w/2, square.h/2);
+          }
+        }
+        
+        // Draw wands if showing
+        if (this.showWand) {
+          for (const wand of this.wands) {
+            wand.paint();
           }
         }
       }
       
-      // Add randomization with preserved density
+      // Initialize with a specific number of wands based on density
       randomize(density: number) {
-        const normalizedDensity = density / 400; // 0.125 - 0.875 range
+        // Clear existing wands
+        this.wands = [];
         
-        for (let i = 0; i < this.cols; i++) {
-          for (let j = 0; j < this.rows; j++) {
-            this.grid[i][j] = p.random() < normalizedDensity ? 1 : 0;
+        // Reset grid
+        for (let j = 0; j < this.cols; j++) {
+          for (let i = 0; i < this.rows; i++) {
+            this.grid[j][i].engaged = false;
           }
+        }
+        
+        // Map density to number of wands (between 5-35)
+        const wandCount = Math.floor(p.map(density, 0, 100, 5, 35));
+        
+        // Create wands at random positions
+        for (let i = 0; i < wandCount; i++) {
+          const wand = new Wand(
+            p.random(p.width), 
+            p.random(p.height),
+            this,
+            this.hideSmallMovements
+          );
+          this.wands.push(wand);
+        }
+      }
+      
+      // Toggle settings
+      toggleHideMovements() {
+        this.hideSmallMovements = !this.hideSmallMovements;
+        // Update wands with new setting
+        for (const wand of this.wands) {
+          wand.hideSmallMovements = this.hideSmallMovements;
+        }
+      }
+      
+      toggleShowWand() {
+        this.showWand = !this.showWand;
+      }
+      
+      // Get square at pixel coordinates
+      getSquareAt(x: number, y: number): Square {
+        const xCoord = p.constrain(Math.floor(p.map(x, 0, p.width, 0, this.cols)), 0, this.cols - 1);
+        const yCoord = p.constrain(Math.floor(p.map(y, 0, p.height, 0, this.rows)), 0, this.rows - 1);
+        return this.grid[xCoord][yCoord];
+      }
+      
+      // Toggle showWand based on params
+      updateShowWand(showWands: boolean) {
+        this.showWand = showWands;
+      }
+    }
+    
+    // Square class for grid cells
+    class Square {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      engaged: boolean = false;
+      engagedBy: number = -1;
+      xc: number;
+      yc: number;
+      col: any = p.color(255, 255, 255);
+      
+      constructor(x: number, y: number, w: number, h: number, xc: number, yc: number) {
+        this.x = x;
+        this.y = y;
+        this.w = w;
+        this.h = h;
+        this.xc = xc;
+        this.yc = yc;
+      }
+    }
+    
+    // Wand class (cellular automaton)
+    class Wand {
+      x: number;
+      y: number;
+      speed: number;
+      col: any;
+      automata: CellularAutomata;
+      hideSmallMovements: boolean;
+      
+      constructor(startX: number, startY: number, automata: CellularAutomata, hideSmallMovements: boolean, speed: number = 20) {
+        this.x = startX;
+        this.y = startY;
+        this.speed = speed;
+        this.automata = automata;
+        this.hideSmallMovements = hideSmallMovements;
+        
+        // Generate a random color for this wand (favor colors with higher red component)
+        this.col = p.color(
+          p.random(205) + 50,  // Red component (50-255)
+          p.random(50) + 50,   // Green component (50-100)
+          p.random(50) + 50    // Blue component (50-100)
+        );
+        
+        // Mark initial square as engaged
+        const sq = this.automata.getSquareAt(this.x, this.y);
+        sq.engaged = true;
+        sq.col = this.col;
+      }
+      
+      move(speed: number = 1) {
+        // Create vector with random direction
+        const vx = p.random(-this.speed, this.speed) * speed;
+        const vy = p.random(-this.speed, this.speed) * speed;
+        
+        // Get current square
+        const sq = this.automata.getSquareAt(this.x, this.y);
+        sq.engaged = true;
+        
+        // Get new potential square
+        const newSq = this.automata.getSquareAt(this.x + vx, this.y + vy);
+        
+        // Check if movement is valid:
+        // 1. If staying in same cell, always allow
+        // 2. If moving to new cell, only allow if not already engaged
+        if (
+          (sq.xc === newSq.xc && sq.yc === newSq.yc) || 
+          ((sq.xc !== newSq.xc || sq.yc !== newSq.yc) && !newSq.engaged)
+        ) {
+          // Move is valid
+          this.x += vx;
+          this.y += vy;
+          
+          // Constrain to canvas boundaries
+          this.x = p.constrain(this.x, 0, p.width);
+          this.y = p.constrain(this.y, 0, p.height);
+          
+          // Set color of new square
+          newSq.col = this.col;
+          newSq.engaged = true;
+        }
+        // If invalid move, stay still
+      }
+      
+      paint() {
+        p.stroke(255, 0, 0);
+        p.fill(255, 255, 0);
+        p.ellipseMode(p.RADIUS);
+        
+        if (!this.hideSmallMovements) {
+          // Draw at exact position
+          p.ellipse(this.x, this.y, 4, 4);
+        } else {
+          // Draw at center of current square
+          const sq = this.automata.getSquareAt(this.x, this.y);
+          p.ellipse(sq.x, sq.y, 4, 4);
         }
       }
     }
@@ -506,6 +637,24 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     };
 
+    // Handle keyboard events
+    p.keyPressed = () => {
+      // Only handle keys when cellular algorithm is active
+      if (algorithm === 'cellular' && particles && particles.length > 0) {
+        const cellular = particles[0] as CellularAutomata;
+        
+        // 'h' key toggles hiding small movements (like in the reference)
+        if (p.key === 'h' || p.key === 'H') {
+          cellular.toggleHideMovements();
+        }
+        
+        // 'w' key toggles wand visibility (like in the reference)
+        if (p.key === 'w' || p.key === 'W') {
+          cellular.toggleShowWand();
+        }
+      }
+    };
+
     // Draw function
     p.draw = () => {
       const normalizedParams = getNormalizedParams();
@@ -594,17 +743,39 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Clear background for cellular automata
         p.background(r, g, b);
         
-        // Run cellular automata simulation steps
+        // Get the cellular automata instance
+        const cellular = particles[0] as CellularAutomata;
+        
+        // Update showWand setting from params
+        cellular.updateShowWand(params.showWands || false);
+        
+        // Run simulation steps based on speed parameter
         const simulationSteps = currentIsSaving ? 15 : 8;
         for (let step = 0; step < simulationSteps; step++) {
-          // Only update cellular every few sim steps based on speed param for visual stability
+          // Scale the update frequency with the speed parameter
           if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
-             particles[0].update(normalizedParams.complexity);
+            cellular.update(normalizedParams.complexity, normalizedParams.speed * 0.1);
           }
         }
         
         // Display cellular automata
-        particles[0].display(colors.foreground);
+        cellular.display(colors.foreground);
+        
+        // Adjust cell size based on complexity when mouse is clicked
+        if (p.mouseIsPressed && p.mouseButton === p.LEFT) {
+          // Scale the grid (div in original) based on mouse X position - similar to reference
+          const newCellSize = Math.floor(p.map(p.mouseX, 0, p.width, 10, 40));
+          const wandCount = Math.floor(p.map(p.mouseY, p.height, 0, 5, 35)); // Similar to reference
+          
+          // Only regenerate if there's a significant change
+          if (Math.abs(newCellSize - cellular.cellSize) > 2) {
+            // Create new cellular with new cell size
+            particles[0] = new CellularAutomata(newCellSize);
+            (particles[0] as CellularAutomata).randomize(normalizedParams.density);
+          }
+        }
+        
+        // Draw border
         drawBorder(colors.foreground);
       } else if (algorithm === 'dither') {
         // Placeholder for Dither algorithm

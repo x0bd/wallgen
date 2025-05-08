@@ -1,6 +1,6 @@
 "use client"
 
-import { Settings, RotateCcw, Wand2, Zap, Sliders } from "lucide-react"
+import { Settings, RotateCcw, Wand2, Zap, Sliders, Eye } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { Slider } from "@/components/ui/slider"
@@ -11,7 +11,8 @@ export function ParametersWidget() {
     params, 
     updateParams, 
     resetParams,
-    isSaving
+    isSaving,
+    algorithm
   } = useAlgorithm();
   
   // Handle slider changes
@@ -143,6 +144,21 @@ export function ParametersWidget() {
                 disabled={isSaving}
               />
             </div>
+            
+            {/* Show Wands toggle (only visible for Cellular algorithm) */}
+            {algorithm === 'cellular' && (
+              <div className="flex items-center justify-between p-2 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10">
+                <div className="flex items-center gap-1.5">
+                  <Eye size={14} className="opacity-60" />
+                  <span className="text-xs font-mono">Show wands</span>
+                </div>
+                <ToggleSwitch 
+                  isOn={params.showWands || false} 
+                  onToggle={() => handleToggleChange('showWands', !(params.showWands || false))}
+                  disabled={isSaving}
+                />
+              </div>
+            )}
           </div>
         </div>
         

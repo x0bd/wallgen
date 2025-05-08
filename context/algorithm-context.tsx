@@ -14,6 +14,7 @@ export interface AlgorithmParams {
   autoAdjust: boolean
   randomizeOnLoad: boolean
   transparentBackground?: boolean
+  showWands?: boolean
 }
 
 // Define the color options
@@ -71,7 +72,8 @@ const defaultParams: AlgorithmParams = {
   density: 60,
   autoAdjust: true,
   randomizeOnLoad: false,
-  transparentBackground: false
+  transparentBackground: false,
+  showWands: false
 }
 
 // Default color options
