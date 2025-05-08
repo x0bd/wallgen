@@ -242,18 +242,35 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       u: any; // Vector for hex grid
       v: any; // Vector for hex grid
       o: any; // Origin offset
-      dict: Map<number, string> = new Map();
+      dict: Map<number, number> = new Map();
+      stateCount: number = 3; // Default to 3 states, will be updated based on colors
+      losesTo: Record<number, number> = {}; // Will be dynamically generated
       
-      constructor(width: number, height: number, cellSize: number) {
+      constructor(width: number, height: number, cellSize: number, stateCount: number = 3) {
         this.width = width;
         this.height = height;
         this.cellSize = cellSize;
+        this.stateCount = stateCount;
         
         // Create vectors for hex grid calculation (following reference)
         this.u = p.createVector(cellSize * Math.sqrt(3)/2, cellSize/2);
         this.v = p.createVector(0, cellSize);
         this.o = this.v.copy();
         this.o.add(p.createVector(this.u.x, 0));
+        
+        // Create the game rules - each state loses to the next one
+        this.createRules(stateCount);
+      }
+      
+      // Create the cyclic game rules
+      createRules(stateCount: number): void {
+        this.stateCount = stateCount;
+        this.losesTo = {};
+        
+        // Each state loses to the next state in the circle
+        for (let i = 0; i < stateCount; i++) {
+          this.losesTo[i] = (i + 1) % stateCount;
+        }
       }
       
       // Key function to map 2D coordinates to 1D for dictionary lookup
@@ -263,13 +280,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
       
       // Get value at hex coordinate
-      getValue(coords: [number, number]): string | undefined {
+      getValue(coords: [number, number]): number | undefined {
         const k = this.key(coords);
         return this.dict.get(k);
       }
       
       // Set value at hex coordinate
-      setValue(coords: [number, number], val: string): void {
+      setValue(coords: [number, number], val: number): void {
         const k = this.key(coords);
         this.dict.set(k, val);
       }
@@ -321,19 +338,28 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         ];
       }
       
-      // Initialize the lattice with random cell states (R, P, S)
+      // Initialize the lattice with random cell states
       randomize(density: number): void {
         // Clear the dictionary
         this.dict.clear();
         
-        // Use balanced distribution by default
-        const candidateValues = ['R', 'P', 'S'];
+        // Density parameter influences bias towards specific states
+        const densityBias = Math.min(0.5, density / 200); // 0 - 0.5
         
         // Iterate through all cell positions
         for (const cell of this.cells()) {
-          // Randomly select a value from candidates
-          const value = candidateValues[Math.floor(p.random(candidateValues.length))];
-          this.setValue(cell, value);
+          // Randomly select a state value, with slight bias based on density
+          let stateValue: number;
+          
+          if (p.random() < densityBias) {
+            // Bias towards first two states if high density
+            stateValue = Math.floor(p.random(2));
+          } else {
+            // Otherwise equal distribution
+            stateValue = Math.floor(p.random(this.stateCount));
+          }
+          
+          this.setValue(cell, stateValue);
         }
       }
       
@@ -342,33 +368,36 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Create a new dictionary for the next state
         const nextDict = new Map();
         
-        // Define the winning relationships (identical to reference)
-        const losesTo: Record<string, string> = {R: 'P', P: 'S', S: 'R'};
+        // The threshold is how many antagonists it takes to defeat a cell
+        // Higher complexity means more resistance to change (higher threshold)
+        const threshold = Math.max(1, Math.min(3, Math.floor(complexity / 40) + 1));
         
         // Update each cell based on neighbors
         for (const cell of this.cells()) {
-          const counts: Record<string, number> = {R: 0, P: 0, S: 0};
+          // Initialize counts for all possible states
+          const counts: Record<number, number> = {};
+          for (let i = 0; i < this.stateCount; i++) {
+            counts[i] = 0;
+          }
           
           // Get current cell value
-          const cellValue = this.getValue(cell) || 'R'; // Default to 'R' if undefined
+          const cellValue = this.getValue(cell) || 0;
           counts[cellValue] += 1;
           
           // Count values of neighbors
           for (const neighbor of this.neighbors(cell)) {
             const neighValue = this.getValue(neighbor);
-            if (neighValue) {
-              counts[neighValue] += 1;
+            if (neighValue !== undefined) {
+              counts[neighValue] = (counts[neighValue] || 0) + 1;
             }
           }
           
-          // Determine next state using rules from reference
-          const antagonist = losesTo[cellValue];
+          // Determine next state using cyclic dominance rules
+          const antagonist = this.losesTo[cellValue];
           
-          // Adjust threshold based on complexity
-          const threshold = Math.max(1, Math.min(3, Math.floor(complexity / 40) + 1));
-          
+          // Check if there are enough antagonists to defeat this cell
           if (counts[antagonist] >= threshold) {
-            // Cell is defeated if enough antagonists surround it
+            // Cell is defeated and changes to antagonist state
             nextDict.set(this.key(cell), antagonist);
           } else {
             // Cell remains unchanged
@@ -381,15 +410,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
       
       // Draw the current state of the lattice
-      display(colors: Record<string, any>): void {
+      display(colors: any[]): void {
+        // Cell border visibility - using similar approach to reference
+        const showBorder = false;
+        
         // Draw each cell
         for (const cell of this.cells()) {
           const value = this.getValue(cell);
-          if (!value) continue;
+          if (value === undefined) continue;
           
           // Get color for this cell type
-          const fillColor = colors[value];
-          if (!fillColor) continue;
+          const colorIndex = value % colors.length;
+          const fillColor = colors[colorIndex];
           
           // Draw the hexagon
           p.beginShape();
@@ -398,8 +430,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           p.fill(fillColor);
           
           // Use the border style from reference
-          p.stroke(fillColor);
-          p.strokeWeight(1);
+          if (showBorder) {
+            p.stroke(0);
+            p.strokeWeight(1);
+          } else {
+            p.stroke(fillColor);
+            p.strokeWeight(1);
+          }
           
           // Draw all vertices of the hexagon
           for (const vertex of this.vertices(cell)) {
@@ -586,8 +623,14 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Lower complexity = larger cells (easier to see the patterns)
         const baseSize = Math.max(20, Math.floor(50 - normalizedParams.complexity * 0.4));
         
+        // Get the number of available colors - use at least 3
+        const colorsList = colors.foregroundColors || [colors.foreground];
+        const stateCount = Math.max(3, colorsList.length);
+        
+        console.log(`Creating Hex Lattice with ${stateCount} states based on available colors`);
+        
         // Create new hex lattice with full canvas dimensions
-        const lattice = new HexLattice(p.width, p.height, baseSize);
+        const lattice = new HexLattice(p.width, p.height, baseSize, stateCount);
         
         // Initialize the lattice with balanced distribution
         lattice.randomize(normalizedParams.density);
@@ -687,12 +730,26 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Clear background for cellular automata
         p.background(r, g, b);
         
-        // Create color mapping for R, P, S
-        const cellColors = {
-          'R': colors.foregroundColors ? colors.foregroundColors[0] : p.color(255, 0, 0), 
-          'P': colors.foregroundColors ? colors.foregroundColors[1] : p.color(0, 255, 0),
-          'S': colors.foregroundColors ? colors.foregroundColors[2] : p.color(0, 0, 255)
-        };
+        // Get all available colors for the cellular states
+        let cellColors: any[] = [];
+        
+        if (colors.foregroundColors && colors.foregroundColors.length > 0) {
+          // Use all available colors from the theme
+          cellColors = colors.foregroundColors;
+        } else {
+          // Create color variations from the foreground color
+          const [fr, fg, fb] = getRGB(colors.foreground);
+          
+          // Create at least 3 color variations
+          cellColors = [
+            colors.foreground,
+            p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
+            p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
+            p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
+            p.color(fr * 1.1, fg * 1.1, fb * 0.7), // Yellowish variation
+            p.color(fr * 1.0, fg * 0.7, fb * 1.2)  // Purplish variation
+          ];
+        }
         
         // Run cellular automata simulation steps
         const simulationSteps = currentIsSaving ? 5 : 2;
@@ -708,7 +765,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Display hex lattice with the mapped colors
         particles[0].display(cellColors);
         
-        // Draw border around the canvas
+        // Draw border around the canvas - now disabled in this function
         drawBorder(colors.foreground);
       } else if (algorithm === 'dither') {
         // Placeholder for Dither algorithm
