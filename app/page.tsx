@@ -4,7 +4,7 @@ import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { SaveProgress } from "@/components/GenerationProgress";
-import { Waves, Hexagon, Wind } from "lucide-react";
+import { Waves, Hexagon, Wind, Image } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
@@ -69,16 +69,16 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => setAlgorithm('flowField')}
+              onClick={() => setAlgorithm('flowImage')}
               disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
-                ${algorithm === 'flowField' 
+                ${algorithm === 'flowImage' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
-              <Wind size={14} className={`${algorithm === 'flowField' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
-              <span>FLOW FIELD</span>
+              <Image size={14} className={`${algorithm === 'flowImage' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
+              <span>FLOW IMAGE</span>
             </button>
             
             <button 

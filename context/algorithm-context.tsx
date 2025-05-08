@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react'
 
 // Define algorithm types
-export type AlgorithmType = 'perlinNoise' | 'cellular' | 'flowField' | 'dither' | 'gradients' | 'ascii' | 'abstract'
+export type AlgorithmType = 'perlinNoise' | 'cellular' | 'dither' | 'gradients' | 'ascii' | 'abstract' | 'flowImage'
 
 // Define the parameters for each algorithm
 export interface AlgorithmParams {
@@ -14,6 +14,9 @@ export interface AlgorithmParams {
   autoAdjust: boolean
   randomizeOnLoad: boolean
   transparentBackground?: boolean
+  strokeLength?: number
+  strokeThickness?: number
+  imageUrl?: string
 }
 
 // Define the color options
@@ -49,6 +52,8 @@ interface AlgorithmContextState {
   clearCanvas: () => void
   finishSaving: () => void
   triggerInitialization: () => void
+  uploadImage: (file: File) => void
+  resetImage: () => void
   exportCanvas: (options: { 
     width: number, 
     height: number, 
@@ -71,7 +76,10 @@ const defaultParams: AlgorithmParams = {
   density: 60,
   autoAdjust: true,
   randomizeOnLoad: false,
-  transparentBackground: false
+  transparentBackground: false,
+  strokeLength: 15,
+  strokeThickness: 50,
+  imageUrl: '/images/wall.jpg' // Default image
 }
 
 // Default color options
@@ -375,6 +383,41 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
     }, delay);
   }, [algorithm, params, selectedColorId]);
 
+  // Upload image
+  const uploadImage = useCallback((file: File) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const imageUrl = e.target?.result as string;
+      if (imageUrl) {
+        // Update the imageUrl parameter
+        setParams(prev => ({
+          ...prev,
+          imageUrl
+        }));
+        
+        // Trigger initialization with the new image
+        setInitSignal(s => s + 1);
+        setNeedsRedraw(true);
+      }
+    };
+    
+    reader.readAsDataURL(file);
+  }, []);
+
+  // Reset image
+  const resetImage = useCallback(() => {
+    // Reset to default image
+    setParams(prev => ({
+      ...prev,
+      imageUrl: '/images/wall.jpg'
+    }));
+    
+    // Trigger initialization
+    setInitSignal(s => s + 1);
+    setNeedsRedraw(true);
+  }, []);
+
   return (
     <AlgorithmContext.Provider 
       value={{
@@ -399,6 +442,8 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
         clearCanvas,
         finishSaving,
         triggerInitialization,
+        uploadImage,
+        resetImage,
         exportCanvas
       }}
     >

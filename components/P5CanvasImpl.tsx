@@ -174,66 +174,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     }
     
-    // Flow Field Implementation
-    class FlowFieldParticle {
-      pos: any;
-      prevPos: any;
-      vel: any;
-      acc: any;
-      maxSpeed: number;
-      color: any;
-      alpha: number;
-      strokeWeight: number;
-      
-      constructor() {
-        this.pos = p.createVector(p.random(p.width), p.random(p.height));
-        this.prevPos = this.pos.copy();
-        this.vel = p.createVector(0, 0);
-        this.acc = p.createVector(0, 0);
-        this.maxSpeed = p.random(2, 8); // Increased for larger canvas
-        
-        const colors = getColors();
-        this.color = colors.foreground;
-        this.alpha = p.random(20, 100);
-        this.strokeWeight = p.random(2, 8); // Increased stroke weight for better visibility
-      }
-      
-      update(noiseScale: number, speed: number) {
-        this.prevPos = this.pos.copy();
-        
-        // Calculate direction from noise
-        const angle = p.noise(
-          this.pos.x * noiseScale,
-          this.pos.y * noiseScale,
-          time * 0.01
-        ) * p.TWO_PI * 2;
-        
-        const force = p.Vector.fromAngle(angle);
-        force.mult(speed * 0.5);
-        
-        this.acc = force;
-        this.vel.add(this.acc);
-        this.vel.limit(this.maxSpeed);
-        this.pos.add(this.vel);
-        
-        // Reset acceleration
-        this.acc.mult(0);
-        
-        // Edge handling
-        if (this.pos.x < 0 || this.pos.x > p.width || this.pos.y < 0 || this.pos.y > p.height) {
-          this.pos = p.createVector(p.random(p.width), p.random(p.height));
-          this.prevPos = this.pos.copy();
-        }
-      }
-      
-      display() {
-        const [r, g, b] = getRGB(this.color);
-        p.stroke(r, g, b, this.alpha);
-        p.strokeWeight(this.strokeWeight);
-        p.line(this.prevPos.x, this.prevPos.y, this.pos.x, this.pos.y);
-      }
-    }
-    
     // Cellular Automata Implementation (Hexagonal Rock-Paper-Scissors)
     class HexLattice {
       width: number = 0;
@@ -449,6 +389,65 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     }
     
+    // Flow Image Implementation
+    class FlowImageParticle {
+      x: number;
+      y: number;
+      r: number = 0;
+      g: number = 0;
+      b: number = 0;
+      a: number = 255;
+      strokeLength: number;
+      angle: number = 0;
+      strokeWeight: number;
+      
+      constructor(x: number, y: number, r: number, g: number, b: number, a: number, strokeLength: number, strokeWeight: number) {
+        this.x = x;
+        this.y = y;
+        this.r = r;
+        this.g = g;
+        this.b = b;
+        this.a = a;
+        this.strokeLength = strokeLength;
+        this.strokeWeight = strokeWeight;
+      }
+      
+      update(noiseScale: number) {
+        // Calculate angle based on noise
+        this.angle = p.noise(this.x * noiseScale, this.y * noiseScale) * p.TWO_PI;
+      }
+      
+      display() {
+        p.push();
+        
+        // Translate to particle position
+        p.translate(this.x, this.y);
+        
+        // Rotate according to noise field
+        p.rotate(this.angle);
+        
+        // Add variation to stroke length
+        const lengthVariation = p.random(0.75, 1.25);
+        
+        // Draw main stroke
+        p.stroke(this.r, this.g, this.b, this.a);
+        p.strokeWeight(this.strokeWeight);
+        p.line(0, 0, this.strokeLength * lengthVariation, 0);
+        
+        // Draw highlight
+        p.stroke(
+          Math.min(this.r * 3, 255), 
+          Math.min(this.g * 3, 255), 
+          Math.min(this.b * 3, 255), 
+          p.random(100)
+        );
+        p.strokeWeight(this.strokeWeight * 0.8);
+        p.line(0, -this.strokeWeight * 0.15, this.strokeLength * lengthVariation, -this.strokeWeight * 0.15);
+        
+        p.pop();
+      }
+    }
+    
     // Handle resize
     const handleResize = () => {
       if (canvasRef.current && p) {
@@ -611,13 +610,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           // Set a random starting time offset
           time = p.random(0, 1000);
         }
-      } else if (algorithm === 'flowField') {
-        // Increase particle count for flow field on larger canvas
-        const particleCount = Math.min(1000, Math.floor(normalizedParams.density * 3));
-        for (let i = 0; i < particleCount; i++) {
-          const particle = new FlowFieldParticle();
-          particles.push(particle);
-        }
       } else if (algorithm === 'cellular') {
         // Calculate a good cell size based on complexity
         // Lower complexity = larger cells (easier to see the patterns)
@@ -639,6 +631,56 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         particles = [lattice];
         
         console.log(`Initialized hex lattice with cell size ${baseSize}px`);
+      } else if (algorithm === 'flowImage') {
+        // Reset particles array
+        particles = [];
+        
+        // Reference to the source image
+        let sourceImage: any = null;
+        
+        // Load the source image
+        p.loadImage(params.imageUrl || '/images/wall.jpg', (img: any) => {
+          // Resize the image to fit the canvas while preserving aspect ratio
+          const aspectRatio = img.width / img.height;
+          let newWidth = p.width;
+          let newHeight = p.height;
+          
+          if (p.width / aspectRatio > p.height) {
+            newWidth = p.height * aspectRatio;
+          } else {
+            newHeight = p.width / aspectRatio;
+          }
+          
+          // Resize the image
+          img.resize(newWidth, newHeight);
+          
+          // Center the image
+          const offsetX = (p.width - newWidth) / 2;
+          const offsetY = (p.height - newHeight) / 2;
+          
+          // Load the pixels so we can access color data
+          img.loadPixels();
+          
+          // Source image is centered on the canvas
+          sourceImage = {
+            img: img,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            width: newWidth,
+            height: newHeight
+          };
+          
+          // Store the source image in the first particle array slot for reference
+          particles[0] = sourceImage;
+          
+          // Set a white background
+          p.background(255);
+          
+          // Initialize the drawing frame counter
+          time = 0;
+          
+          console.log('Image loaded and prepared for flow field effect');
+        });
       }
     };
 
@@ -698,34 +740,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // Draw border after particles
         drawBorder(colors.foreground);
-      } else if (algorithm === 'flowField') {
-        // For other algorithms, always clear the background
-        p.background(r, g, b);
-        
-        // --- Simulation Steps ---
-        // Use a fixed number of steps
-        const simulationSteps = currentIsSaving ? 15 : 8;
-        
-        // Run simulation internally
-        for (let step = 0; step < simulationSteps; step++) {
-          time += normalizedParams.speed * 0.01; // Advance time
-          for (const particle of particles) {
-            particle.update(normalizedParams.noiseScale, normalizedParams.speed);
-            // Update prevPos only on the last step for correct line drawing
-            if (step === simulationSteps - 1) {
-               particle.prevPos = particle.pos.copy();
-            }
-          }
-        }
-        
-        // Draw flow field particles
-        for (const particle of particles) {
-          const [fr, fg, fb] = getRGB(particle.color);
-          p.stroke(fr, fg, fb, 180);
-          p.strokeWeight(particle.strokeWeight * 1.5);
-          p.line(particle.prevPos.x, particle.prevPos.y, particle.pos.x, particle.pos.y);
-        }
-        drawBorder(colors.foreground);
       } else if (algorithm === 'cellular' && particles.length > 0) {
         // Clear background for cellular automata
         p.background(r, g, b);
@@ -767,6 +781,77 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // Draw border around the canvas - now disabled in this function
         drawBorder(colors.foreground);
+      } else if (algorithm === 'flowImage' && particles.length > 0) {
+        // The first particle contains our source image
+        const sourceImage = particles[0];
+        
+        // If we haven't loaded the image yet, skip this frame
+        if (!sourceImage || !sourceImage.img) {
+          return;
+        }
+        
+        // Get normalized parameters
+        const noiseScale = normalizedParams.noiseScale * 0.0001; // Very small for smooth flow
+        const strokeLength = params.strokeLength || 15;
+        
+        // Calculate max progress (total frames to complete the effect)
+        const drawLength = 580; // From reference
+        
+        // Update frame counter
+        time++;
+        
+        // Only draw up to the max frame count
+        if (time > drawLength) {
+          return;
+        }
+        
+        // Calculate the number of strokes to draw per frame
+        // Start with fewer strokes and increase over time
+        const count = p.map(time, 0, drawLength, 2, 80);
+        
+        // Draw each stroke
+        for (let i = 0; i < count; i++) {
+          // Pick a random point on the image
+          const x = Math.floor(p.random(sourceImage.width));
+          const y = Math.floor(p.random(sourceImage.height));
+          
+          // Get the corresponding pixel index
+          const pixelX = x + sourceImage.offsetX;
+          const pixelY = y + sourceImage.offsetY;
+          
+          // Skip if outside the canvas
+          if (pixelX < 0 || pixelX >= p.width || pixelY < 0 || pixelY >= p.height) {
+            continue;
+          }
+          
+          // Get the pixel color from the source image
+          const imgX = Math.floor(p.map(x, 0, sourceImage.width, 0, sourceImage.img.width));
+          const imgY = Math.floor(p.map(y, 0, sourceImage.height, 0, sourceImage.img.height));
+          
+          // Calculate the pixel index in the image data array
+          const index = (imgY * sourceImage.img.width + imgX) * 4;
+          
+          // Get RGBA values
+          const r = sourceImage.img.pixels[index];
+          const g = sourceImage.img.pixels[index + 1];
+          const b = sourceImage.img.pixels[index + 2];
+          const a = sourceImage.img.pixels[index + 3];
+          
+          // Calculate stroke thickness based on progress
+          const strokeThickness = params.strokeThickness || 50; // Default to 50 if undefined
+          const strokeWeight = p.map(time, 0, drawLength, strokeThickness / 10, 1);
+          
+          // Create and update a particle for this point
+          const particle = new FlowImageParticle(
+            pixelX, pixelY, r, g, b, a, strokeLength, strokeWeight
+          );
+          
+          // Update the particle's angle based on noise
+          particle.update(noiseScale);
+          
+          // Draw the particle
+          particle.display();
+        }
       } else if (algorithm === 'dither') {
         // Placeholder for Dither algorithm
         p.background(r, g, b);
