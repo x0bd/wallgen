@@ -413,37 +413,20 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
       
       update(noiseScale: number) {
-        // Calculate angle based on noise
         this.angle = p.noise(this.x * noiseScale, this.y * noiseScale) * p.TWO_PI;
       }
       
       display() {
         p.push();
-        
-        // Translate to particle position
         p.translate(this.x, this.y);
-        
-        // Rotate according to noise field
         p.rotate(this.angle);
-        
-        // Add variation to stroke length
         const lengthVariation = p.random(0.75, 1.25);
-        
-        // Draw main stroke
         p.stroke(this.r, this.g, this.b, this.a);
         p.strokeWeight(this.strokeWeight);
         p.line(0, 0, this.strokeLength * lengthVariation, 0);
-        
-        // Draw highlight
-        p.stroke(
-          Math.min(this.r * 3, 255), 
-          Math.min(this.g * 3, 255), 
-          Math.min(this.b * 3, 255), 
-          p.random(100)
-        );
+        p.stroke(Math.min(this.r * 3, 255), Math.min(this.g * 3, 255), Math.min(this.b * 3, 255), p.random(100));
         p.strokeWeight(this.strokeWeight * 0.8);
         p.line(0, -this.strokeWeight * 0.15, this.strokeLength * lengthVariation, -this.strokeWeight * 0.15);
-        
         p.pop();
       }
     }
@@ -517,10 +500,9 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
     const initializeParticles = () => {
       const normalizedParams = getNormalizedParams();
       const colors = getColors();
-      const [r, g, b] = getRGB(colors.background);
+      const [bgR, bgG, bgB] = getRGB(colors.background);
       
-      // Always set a clean background on initialization
-      p.background(r, g, b);
+      p.background(bgR, bgG, bgB); // General background clear
       
       // Check if we really need to recreate particles (for performance)
       // Only recreate particles if certain params have changed significantly
@@ -551,17 +533,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           }
         }
         
-        // Reset time but keep particles
         time = 0;
         return;
       }
       
-      // If we get here, we need to recreate particles
       needsParticleReset = false;
       particles = [];
-      time = 0; // Always reset time when recreating particles
-      
-      // Reset quadtree
+      time = 0;
       resetQuadtree();
       
       if (algorithm === 'perlinNoise') {
@@ -632,229 +610,61 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         console.log(`Initialized hex lattice with cell size ${baseSize}px`);
       } else if (algorithm === 'flowImage') {
-        // Reset particles array
-        particles = [];
+        particles = []; // Clear any previous image data
         
-        // Reference to the source image
-        let sourceImage: any = null;
-        
-        // Load the source image
+        // This is the region of the MASTER_CANVAS that is visible in the VIEWPORT
+        const masterVisibleWidth = MASTER_CANVAS_SIZE;
+        // MASTER_CANVAS_SIZE * (VIEWPORT_HEIGHT / VIEWPORT_WIDTH) if scaling based on master width
+        // Or, more directly: VIEWPORT_HEIGHT * (MASTER_CANVAS_SIZE / VIEWPORT_WIDTH)
+        const masterVisibleHeight = VIEWPORT_HEIGHT * MASTER_CANVAS_SIZE / VIEWPORT_WIDTH; 
+
         p.loadImage(params.imageUrl || '/images/wall.jpg', (img: any) => {
-          // Resize the image to fit the canvas while preserving aspect ratio
-          const aspectRatio = img.width / img.height;
-          let newWidth = p.width;
-          let newHeight = p.height;
-          
-          if (p.width / aspectRatio > p.height) {
-            newWidth = p.height * aspectRatio;
-          } else {
-            newHeight = p.width / aspectRatio;
+          const imgAr = img.width / img.height;
+          const targetRegionAr = masterVisibleWidth / masterVisibleHeight;
+
+          let finalImgW, finalImgH; // Final dimensions of the image after scaling to cover target
+          let srcRectX = 0, srcRectY = 0; // Top-left of sub-rectangle to sample from in scaled image
+
+          if (imgAr > targetRegionAr) { // Image is wider or less tall than target region aspect ratio
+            finalImgH = masterVisibleHeight;
+            finalImgW = finalImgH * imgAr;
+            srcRectX = (finalImgW - masterVisibleWidth) / 2; // Center horizontally
+            srcRectY = 0;
+          } else { // Image is taller or less wide
+            finalImgW = masterVisibleWidth;
+            finalImgH = finalImgW / imgAr;
+            srcRectX = 0;
+            srcRectY = (finalImgH - masterVisibleHeight) / 2; // Center vertically
           }
-          
-          // Resize the image
-          img.resize(newWidth, newHeight);
-          
-          // Center the image
-          const offsetX = (p.width - newWidth) / 2;
-          const offsetY = (p.height - newHeight) / 2;
-          
-          // Load the pixels so we can access color data
+
+          img.resize(finalImgW, finalImgH); // Resize the p5.Image object to these "cover" dimensions
           img.loadPixels();
           
-          // Source image is centered on the canvas
-          sourceImage = {
-            img: img,
-            offsetX: offsetX,
-            offsetY: offsetY,
-            width: newWidth,
-            height: newHeight
+          // Store processed image data. Particles will be drawn in master coords 0 to masterVisibleWidth/Height.
+          particles[0] = {
+            img: img,             // The p5.Image, resized to cover the target aspect ratio
+            // Source rectangle (in pixels of the resized img) from which to sample colors
+            sampleSourceX: srcRectX, 
+            sampleSourceY: srcRectY,
+            sampleSourceWidth: masterVisibleWidth, // We want to sample a region that matches the visible master region
+            sampleSourceHeight: masterVisibleHeight,
+            // Destination drawing area on the master canvas (top-left part that viewport sees)
+            drawTargetX: 0,
+            drawTargetY: 0,
+            drawTargetWidth: masterVisibleWidth,
+            drawTargetHeight: masterVisibleHeight
           };
-          
-          // Store the source image in the first particle array slot for reference
-          particles[0] = sourceImage;
-          
-          // Set a white background
-          p.background(255);
-          
-          // Initialize the drawing frame counter
-          time = 0;
-          
-          console.log('Image loaded and prepared for flow field effect');
+
+          p.background(255); // Clear master canvas with white for this effect
+          time = 0; // Reset animation timer for flowImage
+          console.log(`FlowImage: Image processed to cover ${masterVisibleWidth}x${masterVisibleHeight} master region.`);
+        }, (err: any) => {
+            console.error("FlowImage: Error loading image:", err);
+            p.background(bgR,bgG,bgB); // Fallback to theme background
         });
-      }
-    };
-
-    // Draw function
-    p.draw = () => {
-      const normalizedParams = getNormalizedParams();
-      const colors = getColors();
-      
-      // Get background color
-      const [r, g, b] = getRGB(colors.background);
-      
-      // Current saving state from ref
-      const currentIsSaving = isSavingRef.current;
-
-      // Begin logic for drawing
-      if (algorithm === 'perlinNoise') {
-        // Only set background once at the beginning, like in reference
-        if (time === 0) {
-          // In reference, a deep purple background is used "#1a0633"
-          if (selectedColorId === "bw" || selectedColorId === "wb") {
-            p.background("#1a0633"); // Use exact background from reference
-          } else if (!params.transparentBackground) {
-            p.background(r, g, b); // Use user-selected background
-          } else {
-            // For transparent background, use clear
-            p.clear();
-          }
-        } else if (params.transparentBackground) {
-          // For transparent mode, we need to clear with very low alpha
-          // to create the trails effect while maintaining transparency
-          p.background(0, 0, 0, 3); // Use reference-similar alpha
-        }
-        // No background refresh for regular mode during animation to allow trails to build up
-        
-        // Reset quadtree for efficiency
-        resetQuadtree();
-        
-        // Use values closer to the reference with slight adjustment for larger canvas
-        const moveSpeed = 0.5; // Just slightly faster than reference (0.4)
-        const moveScale = 800; // Exact reference value
-        
-        // Update the time factor based on speed parameter for user control
-        if (currentIsSaving) {
-          // During saving, slightly speed up animation 
-          time += normalizedParams.speed * 0.02;
-        } else {
-          // Normal continuous animation mode
-          time += normalizedParams.speed * 0.01; // Original speed
-        }
-        
-        // Update all particles - exactly like the reference implementation
-        for (const particle of particles) {
-          particle.update(moveSpeed, moveScale);
-          particle.display();
-          quadtree!.insert(particle);
-        }
-        
-        // Draw border after particles
-        drawBorder(colors.foreground);
-      } else if (algorithm === 'cellular' && particles.length > 0) {
-        // Clear background for cellular automata
-        p.background(r, g, b);
-        
-        // Get all available colors for the cellular states
-        let cellColors: any[] = [];
-        
-        if (colors.foregroundColors && colors.foregroundColors.length > 0) {
-          // Use all available colors from the theme
-          cellColors = colors.foregroundColors;
-        } else {
-          // Create color variations from the foreground color
-          const [fr, fg, fb] = getRGB(colors.foreground);
-          
-          // Create at least 3 color variations
-          cellColors = [
-            colors.foreground,
-            p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
-            p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
-            p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
-            p.color(fr * 1.1, fg * 1.1, fb * 0.7), // Yellowish variation
-            p.color(fr * 1.0, fg * 0.7, fb * 1.2)  // Purplish variation
-          ];
-        }
-        
-        // Run cellular automata simulation steps
-        const simulationSteps = currentIsSaving ? 5 : 2;
-        
-        // Update the hex lattice simulation
-        for (let step = 0; step < simulationSteps; step++) {
-          // Only update every few frames based on speed for stability
-          if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
-             particles[0].update(normalizedParams.complexity);
-          }
-        }
-        
-        // Display hex lattice with the mapped colors
-        particles[0].display(cellColors);
-        
-        // Draw border around the canvas - now disabled in this function
-        drawBorder(colors.foreground);
-      } else if (algorithm === 'flowImage' && particles.length > 0) {
-        // The first particle contains our source image
-        const sourceImage = particles[0];
-        
-        // If we haven't loaded the image yet, skip this frame
-        if (!sourceImage || !sourceImage.img) {
-          return;
-        }
-        
-        // Get normalized parameters
-        const noiseScale = normalizedParams.noiseScale * 0.0001; // Very small for smooth flow
-        const strokeLength = params.strokeLength || 15;
-        
-        // Calculate max progress (total frames to complete the effect)
-        const drawLength = 580; // From reference
-        
-        // Update frame counter
-        time++;
-        
-        // Only draw up to the max frame count
-        if (time > drawLength) {
-          return;
-        }
-        
-        // Calculate the number of strokes to draw per frame
-        // Start with fewer strokes and increase over time
-        const count = p.map(time, 0, drawLength, 2, 80);
-        
-        // Draw each stroke
-        for (let i = 0; i < count; i++) {
-          // Pick a random point on the image
-          const x = Math.floor(p.random(sourceImage.width));
-          const y = Math.floor(p.random(sourceImage.height));
-          
-          // Get the corresponding pixel index
-          const pixelX = x + sourceImage.offsetX;
-          const pixelY = y + sourceImage.offsetY;
-          
-          // Skip if outside the canvas
-          if (pixelX < 0 || pixelX >= p.width || pixelY < 0 || pixelY >= p.height) {
-            continue;
-          }
-          
-          // Get the pixel color from the source image
-          const imgX = Math.floor(p.map(x, 0, sourceImage.width, 0, sourceImage.img.width));
-          const imgY = Math.floor(p.map(y, 0, sourceImage.height, 0, sourceImage.img.height));
-          
-          // Calculate the pixel index in the image data array
-          const index = (imgY * sourceImage.img.width + imgX) * 4;
-          
-          // Get RGBA values
-          const r = sourceImage.img.pixels[index];
-          const g = sourceImage.img.pixels[index + 1];
-          const b = sourceImage.img.pixels[index + 2];
-          const a = sourceImage.img.pixels[index + 3];
-          
-          // Calculate stroke thickness based on progress
-          const strokeThickness = params.strokeThickness || 50; // Default to 50 if undefined
-          const strokeWeight = p.map(time, 0, drawLength, strokeThickness / 10, 1);
-          
-          // Create and update a particle for this point
-          const particle = new FlowImageParticle(
-            pixelX, pixelY, r, g, b, a, strokeLength, strokeWeight
-          );
-          
-          // Update the particle's angle based on noise
-          particle.update(noiseScale);
-          
-          // Draw the particle
-          particle.display();
-        }
       } else if (algorithm === 'dither') {
         // Placeholder for Dither algorithm
-        p.background(r, g, b);
+        p.background(bgR, bgG, bgB);
         
         // Get foreground color for drawing
         const [fr, fg, fb] = getRGB(colors.foreground);
@@ -873,7 +683,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         drawBorder(colors.foreground);
       } else if (algorithm === 'gradients') {
         // Placeholder for Gradients algorithm
-        p.background(r, g, b);
+        p.background(bgR, bgG, bgB);
         
         // Create a gradient using foreground colors
         const gradientColors = colors.foregroundColors || [colors.foreground];
@@ -910,7 +720,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         drawBorder(colors.foreground);
       } else if (algorithm === 'ascii') {
         // Placeholder for ASCII art algorithm
-        p.background(r, g, b);
+        p.background(bgR, bgG, bgB);
         
         // Get foreground color for text
         const [fr, fg, fb] = getRGB(colors.foreground);
@@ -943,7 +753,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         drawBorder(colors.foreground);
       } else if (algorithm === 'abstract') {
         // Abstract algorithm implementation
-        p.background(r, g, b);
+        p.background(bgR, bgG, bgB);
         
         // Use multiple foreground colors if available
         const fgColors = colors.foregroundColors || [colors.foreground];
@@ -987,7 +797,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           if (shapeType === 0) {
             // Circles with cutouts
             p.ellipse(0, 0, size, size);
-            p.fill(r, g, b);
+            p.fill(bgR, bgG, bgB);
             p.ellipse(0, 0, size * 0.6, size * 0.6);
           } 
           else if (shapeType === 1) {
@@ -1055,8 +865,354 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         drawBorder(colors.foreground);
       } else {
-        // Empty state - just clear the canvas
-        p.background(r, g, b);
+        p.background(bgR, bgG, bgB);
+        drawBorder(colors.foreground);
+      }
+    };
+
+    // Draw function
+    p.draw = () => {
+      const normalizedParams = getNormalizedParams();
+      const colors = getColors();
+      const [bgR, bgG, bgB] = getRGB(colors.background);
+      const currentIsSaving = isSavingRef.current;
+
+      if (algorithm === 'perlinNoise') {
+        // Only set background once at the beginning, like in reference
+        if (time === 0) {
+          // In reference, a deep purple background is used "#1a0633"
+          if (selectedColorId === "bw" || selectedColorId === "wb") {
+            p.background("#1a0633"); // Use exact background from reference
+          } else if (!params.transparentBackground) {
+            p.background(bgR, bgG, bgB); // Use user-selected background
+          } else {
+            // For transparent background, use clear
+            p.clear();
+          }
+        } else if (params.transparentBackground) {
+          // For transparent mode, we need to clear with very low alpha
+          // to create the trails effect while maintaining transparency
+          p.background(0, 0, 0, 3); // Use reference-similar alpha
+        }
+        // No background refresh for regular mode during animation to allow trails to build up
+        
+        // Reset quadtree for efficiency
+        resetQuadtree();
+        
+        // Use values closer to the reference with slight adjustment for larger canvas
+        const moveSpeed = 0.5; // Just slightly faster than reference (0.4)
+        const moveScale = 800; // Exact reference value
+        
+        // Update the time factor based on speed parameter for user control
+        if (currentIsSaving) {
+          // During saving, slightly speed up animation 
+          time += normalizedParams.speed * 0.02;
+        } else {
+          // Normal continuous animation mode
+          time += normalizedParams.speed * 0.01; // Original speed
+        }
+        
+        // Update all particles - exactly like the reference implementation
+        for (const particle of particles) {
+          particle.update(moveSpeed, moveScale);
+          particle.display();
+          quadtree!.insert(particle);
+        }
+        
+        // Draw border after particles
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'cellular' && particles.length > 0 && particles[0] instanceof HexLattice) {
+        // Clear background for cellular automata
+        p.background(bgR, bgG, bgB);
+        
+        // Get all available colors for the cellular states
+        let cellColors: any[] = [];
+        
+        if (colors.foregroundColors && colors.foregroundColors.length > 0) {
+          // Use all available colors from the theme
+          cellColors = colors.foregroundColors;
+        } else {
+          // Create color variations from the foreground color
+          const [fr, fg, fb] = getRGB(colors.foreground);
+          
+          // Create at least 3 color variations
+          cellColors = [
+            colors.foreground,
+            p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
+            p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
+            p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
+            p.color(fr * 1.1, fg * 1.1, fb * 0.7), // Yellowish variation
+            p.color(fr * 1.0, fg * 0.7, fb * 1.2)  // Purplish variation
+          ];
+        }
+        
+        // Run cellular automata simulation steps
+        const simulationSteps = currentIsSaving ? 5 : 2;
+        
+        // Update the hex lattice simulation
+        for (let step = 0; step < simulationSteps; step++) {
+          // Only update every few frames based on speed for stability
+          if (step % Math.max(1, Math.floor(10 / normalizedParams.speed)) === 0) {
+             particles[0].update(normalizedParams.complexity);
+          }
+        }
+        
+        // Display hex lattice with the mapped colors
+        particles[0].display(cellColors);
+        
+        // Draw border around the canvas - now disabled in this function
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'flowImage' && particles.length > 0 && particles[0] && particles[0].img) {
+        const imgData = particles[0]; // Contains processed image and region data
+        
+        // The background(255) for flowImage is set once in initializeParticles callback.
+        // No further background clearing per frame to build up the effect.
+
+        const noiseScale = normalizedParams.noiseScale * 0.0001;
+        const strokeLength = params.strokeLength || 15;
+        const drawLength = 580; // Total frames for the effect, from reference
+
+        time++;
+        if (time > drawLength && !currentIsSaving) { // Allow completion if saving
+             // Effect finished, p.noLoop() could be called if not for other animations
+             // For now, just stop drawing more particles for this effect
+        } else if (time <= drawLength) {
+            const count = p.map(time, 0, drawLength, 2, 80);
+            const currentStrokeThickness = params.strokeThickness || 50;
+            const strokeWeight = p.map(time, 0, drawLength, currentStrokeThickness / 10, 0.5); // End with thinner strokes
+
+            for (let i = 0; i < count; i++) {
+                // Pick a random point within the destination drawing area on master canvas
+                const canvasX = p.random(imgData.drawTargetX, imgData.drawTargetX + imgData.drawTargetWidth);
+                const canvasY = p.random(imgData.drawTargetY, imgData.drawTargetY + imgData.drawTargetHeight);
+
+                // Map this canvas point to a relative position (0-1) within the drawing area
+                const relX = (canvasX - imgData.drawTargetX) / imgData.drawTargetWidth;
+                const relY = (canvasY - imgData.drawTargetY) / imgData.drawTargetHeight;
+
+                // Calculate the corresponding pixel in the (potentially cropped) source sample rectangle
+                const xOnImage = Math.floor(imgData.sampleSourceX + relX * imgData.sampleSourceWidth);
+                const yOnImage = Math.floor(imgData.sampleSourceY + relY * imgData.sampleSourceHeight);
+                
+                // Clamp to be safe, though logic should keep it within img bounds if srcRect is from img
+                const clampedX = Math.max(0, Math.min(xOnImage, imgData.img.width - 1));
+                const clampedY = Math.max(0, Math.min(yOnImage, imgData.img.height - 1));
+
+                const index = (clampedY * imgData.img.width + clampedX) * 4;
+                const rVal = imgData.img.pixels[index];
+                const gVal = imgData.img.pixels[index + 1];
+                const bVal = imgData.img.pixels[index + 2];
+                const aVal = imgData.img.pixels[index + 3];
+
+                const particle = new FlowImageParticle(canvasX, canvasY, rVal, gVal, bVal, aVal, strokeLength, strokeWeight);
+                particle.update(noiseScale);
+                particle.display();
+            }
+        }
+      } else if (algorithm === 'dither') {
+        // Placeholder for Dither algorithm
+        p.background(bgR, bgG, bgB);
+        
+        // Get foreground color for drawing
+        const [fr, fg, fb] = getRGB(colors.foreground);
+        p.fill(fr, fg, fb);
+        p.noStroke();
+        
+        // Basic dithering pattern placeholder
+        const gridSize = Math.max(5, Math.floor(20 - (normalizedParams.complexity / 10)));
+        for (let x = 0; x < p.width; x += gridSize * 2) {
+          for (let y = 0; y < p.height; y += gridSize * 2) {
+            p.rect(x, y, gridSize, gridSize);
+            p.rect(x + gridSize, y + gridSize, gridSize, gridSize);
+          }
+        }
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'gradients') {
+        // Placeholder for Gradients algorithm
+        p.background(bgR, bgG, bgB);
+        
+        // Create a gradient using foreground colors
+        const gradientColors = colors.foregroundColors || [colors.foreground];
+        p.noStroke();
+        
+        // Draw gradient bands
+        const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
+        const bandHeight = p.height / numBands;
+        
+        for (let i = 0; i < numBands; i++) {
+          const colorIndex = i % gradientColors.length;
+          const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
+          p.fill(cr, cg, cb, 200);
+          p.rect(0, i * bandHeight, p.width, bandHeight);
+        }
+        
+        // Add some animated waves for visual interest
+        time += normalizedParams.speed * 0.01;
+        p.stroke(255, 255, 255, 40);
+        p.strokeWeight(2);
+        p.noFill();
+        
+        for (let i = 0; i < 5; i++) {
+          p.beginShape();
+          for (let x = 0; x < p.width; x += 20) {
+            const y = p.height / 2 + 
+                     Math.sin(x * 0.01 + time + i) * (50 + i * 20) + 
+                     Math.cos(x * 0.02 + time * 0.7) * (30 + i * 15);
+            p.vertex(x, y);
+          }
+          p.endShape();
+        }
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'ascii') {
+        // Placeholder for ASCII art algorithm
+        p.background(bgR, bgG, bgB);
+        
+        // Get foreground color for text
+        const [fr, fg, fb] = getRGB(colors.foreground);
+        p.fill(fr, fg, fb);
+        
+        // ASCII characters from dense to sparse
+        const asciiChars = "@%#*+=-:. ";
+        const charIndex = Math.floor(time * 5) % asciiChars.length;
+        const char = asciiChars[charIndex];
+        
+        // Set text properties
+        const textSize = Math.max(10, Math.floor(normalizedParams.complexity / 5));
+        p.textSize(textSize);
+        p.textAlign(p.CENTER, p.CENTER);
+        
+        // Create ASCII grid
+        const cellSize = textSize * 1.2;
+        for (let y = cellSize; y < p.height; y += cellSize) {
+          for (let x = cellSize; x < p.width; x += cellSize) {
+            // Use noise to select different characters
+            const noiseVal = p.noise(x * 0.01, y * 0.01, time * 0.1);
+            const charToUse = asciiChars.charAt(Math.floor(noiseVal * asciiChars.length));
+            p.text(charToUse, x, y);
+          }
+        }
+        
+        // Animate time
+        time += normalizedParams.speed * 0.01;
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'abstract') {
+        // Abstract algorithm implementation
+        p.background(bgR, bgG, bgB);
+        
+        // Use multiple foreground colors if available
+        const fgColors = colors.foregroundColors || [colors.foreground];
+        
+        // Update time for animation
+        time += normalizedParams.speed * 0.01;
+        
+        // Create abstract shapes based on complexity
+        const numShapes = Math.floor(10 + normalizedParams.complexity / 2);
+        const maxSize = Math.floor(p.width / 4);
+        
+        // Use perlin noise for organic movement
+        for (let i = 0; i < numShapes; i++) {
+          const colorIndex = i % fgColors.length;
+          const [fr, fg, fb] = getRGB(fgColors[colorIndex]);
+          
+          // Vary opacity based on position
+          const alpha = p.map(i, 0, numShapes, 100, 255);
+          
+          // Get noise-based positions
+          const noiseScale = normalizedParams.noiseScale * 0.001;
+          const noiseTime = time * 0.2;
+          
+          const nx = p.noise(i * 0.3, noiseTime) * p.width;
+          const ny = p.noise(i * 0.3 + 100, noiseTime) * p.height;
+          
+          // Choose shape type based on noise
+          const shapeType = Math.floor(p.noise(i * 0.5, time * 0.1) * 4);
+          
+          p.push();
+          p.translate(nx, ny);
+          p.rotate(time * (i % 5) * 0.02);
+          
+          // Size varies with noise
+          const size = p.noise(i * 0.2, time * 0.05) * maxSize;
+          
+          // Draw different abstract shapes
+          p.fill(fr, fg, fb, alpha);
+          p.noStroke();
+          
+          if (shapeType === 0) {
+            // Circles with cutouts
+            p.ellipse(0, 0, size, size);
+            p.fill(bgR, bgG, bgB);
+            p.ellipse(0, 0, size * 0.6, size * 0.6);
+          } 
+          else if (shapeType === 1) {
+            // Random polygon
+            p.beginShape();
+            const vertices = Math.floor(3 + p.noise(i, time * 0.1) * 5);
+            for (let v = 0; v < vertices; v++) {
+              const angle = p.map(v, 0, vertices, 0, p.TWO_PI);
+              const rad = size * 0.5 * (0.5 + p.noise(i, v, time * 0.05) * 0.5);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.vertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          else if (shapeType === 2) {
+            // Curved lines
+            p.noFill();
+            p.stroke(fr, fg, fb, alpha);
+            p.strokeWeight(3 + p.noise(i, time) * 8);
+            
+            p.beginShape();
+            for (let v = 0; v < 10; v++) {
+              const angle = p.map(v, 0, 10, 0, p.TWO_PI);
+              const rad = size * 0.5 * p.noise(i, v * 0.2, time * 0.1);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape();
+          }
+          else {
+            // Abstract blobs
+            p.beginShape();
+            const steps = 15;
+            for (let v = 0; v <= steps; v++) {
+              const angle = p.map(v, 0, steps, 0, p.TWO_PI);
+              // Use perlin noise to create blob-like shapes
+              const radius = size * 0.5 * p.map(p.noise(i * 0.5, time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
+              const vx = p.cos(angle) * radius;
+              const vy = p.sin(angle) * radius;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          
+          p.pop();
+        }
+        
+        // Add some connecting lines between shapes for composition
+        if (normalizedParams.complexity > 50) {
+          p.stroke(255, 255, 255, 30);
+          p.strokeWeight(1);
+          const lineCount = Math.floor(normalizedParams.complexity / 10);
+          
+          for (let i = 0; i < lineCount; i++) {
+            const x1 = p.noise(i * 0.5, time * 0.1) * p.width;
+            const y1 = p.noise(i * 0.5 + 100, time * 0.1) * p.height;
+            const x2 = p.noise(i * 0.5 + 200, time * 0.1) * p.width;
+            const y2 = p.noise(i * 0.5 + 300, time * 0.1) * p.height;
+            
+            p.line(x1, y1, x2, y2);
+          }
+        }
+        
+        drawBorder(colors.foreground);
+      } else {
+        p.background(bgR, bgG, bgB);
         drawBorder(colors.foreground);
       }
       
