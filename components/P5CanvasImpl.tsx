@@ -543,7 +543,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           canvasRef.current.style.alignItems = 'center';
         }
       } else {
-        // For standard algorithms, use the existing viewport approach
+        // For standard algorithms, use the original simpler approach that had better performance
         canvasElement.style.position = 'absolute';
         canvasElement.style.transformOrigin = 'top left';
         canvasElement.style.transform = `scale(${VIEWPORT_WIDTH / MASTER_CANVAS_SIZE})`;
