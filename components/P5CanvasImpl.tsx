@@ -693,15 +693,39 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           // No need to crop or resize - use the full image as is
           img.loadPixels();
           
+          // Create a blurred version of the image for base layer
+          p.push();
+          // Apply a faded base of the image to reduce white spaces
+          p.tint(255, 40); // Low opacity base
+          p.image(img, 0, 0, img.width, img.height);
+          p.pop();
+          
           // Store the original image
           particles[0] = {
             img: img,
             originalWidth: img.width,
-            originalHeight: img.height
+            originalHeight: img.height,
+            pixelBuffer: [] // Store pre-computed pixel colors for faster access
           };
           
-          p.background(255); // Clear canvas with white for this effect
-          time = 0; // Reset animation timer for flowImage
+          // Pre-compute and store pixel colors for performance
+          const pixelData = [];
+          for (let y = 0; y < img.height; y++) {
+            for (let x = 0; x < img.width; x++) {
+              const index = (y * img.width + x) * 4;
+              pixelData.push({
+                x, y,
+                r: img.pixels[index],
+                g: img.pixels[index + 1],
+                b: img.pixels[index + 2],
+                a: img.pixels[index + 3]
+              });
+            }
+          }
+          particles[0].pixelBuffer = pixelData;
+          
+          // Reset animation timer for flowImage
+          time = 0;
         }, (err: any) => {
           console.error("FlowImage: Error loading image:", err);
           p.background(bgR, bgG, bgB); // Fallback to theme background
@@ -1049,37 +1073,135 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // For flowImage we use the actual image dimensions
         const imgData = particles[0];
         
-        // Draw on the canvas with flowImage effect
-        const noiseScale = normalizedParams.noiseScale * 0.0001;
-        const strokeLength = params.strokeLength || 15;
-        const drawLength = 580; // Total frames for the effect, from reference
-
-        time++;
+        // Get the image dimensions for reference
+        const imgWidth = imgData.img.width;
+        const imgHeight = imgData.img.height;
+        
+        // MUCH more aggressive parameters for maximum density
+        const noiseScale = 0.001 / 10; // Keep original noise scale
+        const strokeLength = 15; // Original stroke length
+        const drawLength = 400; // Shorter animation to reach max density faster
+        
+        // Increment time at a faster rate to reduce white space quicker
+        time += 1.5; // 1.5x speed
+        
         if (time > drawLength && !currentIsSaving) { 
-             // Effect finished, but continue for saving if needed
+          // Effect finished, but continue for saving if needed
         } else if (time <= drawLength) {
-            const count = p.map(time, 0, drawLength, 2, 80);
-            const currentStrokeThickness = params.strokeThickness || 50;
-            const strokeWeight = p.map(time, 0, drawLength, currentStrokeThickness / 10, 0.5);
-
-            for (let i = 0; i < count; i++) {
-                // Sample colors directly from the image at random positions
-                const xPos = p.random(imgData.img.width);
-                const yPos = p.random(imgData.img.height);
-                
-                // Get the color at this position
-                const index = (Math.floor(yPos) * imgData.img.width + Math.floor(xPos)) * 4;
-                const rVal = imgData.img.pixels[index];
-                const gVal = imgData.img.pixels[index + 1];
-                const bVal = imgData.img.pixels[index + 2];
-                const aVal = imgData.img.pixels[index + 3];
-
-                const particle = new FlowImageParticle(
-                    xPos, yPos, rVal, gVal, bVal, aVal, strokeLength, strokeWeight
-                );
-                particle.update(noiseScale);
-                particle.display();
+          // Translate to center image just like the reference implementation
+          p.push();
+          
+          // The exact pattern from flow.js reference: center the image in the viewport
+          p.translate(
+            p.width / 2 - imgWidth / 2,
+            p.height / 2 - imgHeight / 2
+          );
+          
+          // DRAMATICALLY increase the count for ultra-dense strokes
+          // Original was: const count = p.map(time, 0, drawLength, 2, 80);
+          const baseCount = p.map(time, 0, drawLength, 20, 400); // 5x more strokes
+          
+          // Boost count even more for early frames to fill white space quickly
+          const earlyBoost = time < drawLength * 0.3 ? 1.5 : 1.0;
+          const count = Math.floor(baseCount * earlyBoost);
+          
+          // Add multiple stroke layers with different properties for better coverage
+          // Layer 1: Main strokes following reference approach but denser
+          for (let i = 0; i < count; i++) {
+            // Pick a random point on the image
+            const x = Math.floor(p.random(imgWidth));
+            const y = Math.floor(p.random(imgHeight));
+            
+            // Convert coordinates to its index
+            const index = (y * imgWidth + x) * 4;
+            
+            // Get the pixel's color values
+            const r = imgData.img.pixels[index];
+            const g = imgData.img.pixels[index + 1];
+            const b = imgData.img.pixels[index + 2];
+            const a = imgData.img.pixels[index + 3];
+            
+            // Set stroke color
+            p.stroke(r, g, b, a);
+            
+            // Start with thicker strokes and decrease over time
+            const sw = p.map(time, 0, drawLength, 25, 0);
+            p.strokeWeight(sw);
+            
+            p.push();
+            p.translate(x, y);
+            
+            // Rotate according to the noise field
+            const n = p.noise(x * noiseScale, y * noiseScale);
+            p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
+            
+            const lengthVariation = p.random(0.75, 1.25);
+            p.line(0, 0, strokeLength * lengthVariation, 0);
+            
+            // Draw a highlight for more detail
+            p.stroke(Math.min(r * 3, 255), Math.min(g * 3, 255), Math.min(b * 3, 255), p.random(100));
+            p.strokeWeight(sw * 0.8);
+            p.line(0, -sw * 0.15, strokeLength * lengthVariation, -sw * 0.15);
+            
+            p.pop();
+          }
+          
+          // Layer 2: Add background filling strokes every X frames
+          if (time < drawLength * 0.5 && time % 10 === 0) {
+            // Every 10 frames, add extra wide strokes
+            const wideCount = Math.floor(count / 4);
+            
+            for (let i = 0; i < wideCount; i++) {
+              // Target areas that are more likely to be white by using a pattern
+              // Divide canvas into grid and ensure we hit each cell
+              const gridSize = Math.ceil(Math.sqrt(wideCount));
+              const cellWidth = imgWidth / gridSize;
+              const cellHeight = imgHeight / gridSize; 
+              
+              const gridX = i % gridSize;
+              const gridY = Math.floor(i / gridSize);
+              
+              // Add slight randomness within each cell
+              const x = Math.min(imgWidth-1, Math.floor(gridX * cellWidth + p.random(cellWidth)));
+              const y = Math.min(imgHeight-1, Math.floor(gridY * cellHeight + p.random(cellHeight)));
+              
+              // Get the pixel's color values
+              const index = (y * imgWidth + x) * 4;
+              const r = imgData.img.pixels[index];
+              const g = imgData.img.pixels[index + 1];
+              const b = imgData.img.pixels[index + 2];
+              const a = imgData.img.pixels[index + 3];
+              
+              // Draw wider strokes at lower opacity to fill gaps
+              p.stroke(r, g, b, Math.max(100, a/2));
+              const wideSw = p.map(time, 0, drawLength, 40, 15);
+              p.strokeWeight(wideSw);
+              
+              p.push();
+              p.translate(x, y);
+              
+              // Use longer strokes for better coverage
+              const n = p.noise(x * noiseScale * 0.8, y * noiseScale * 0.8);
+              p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
+              
+              // Longer strokes to fill more space
+              const extraLength = strokeLength * 1.5;
+              p.line(0, 0, extraLength, 0);
+              
+              p.pop();
             }
+          }
+          
+          // Layer 3: Add occasional full image tint for base coverage
+          if (time < drawLength * 0.4 && time % 40 === 0) {
+            // Every 40 frames, add a very transparent overlay of the full image
+            p.push();
+            p.tint(255, 10); // Very low opacity
+            p.image(imgData.img, 0, 0, imgWidth, imgHeight);
+            p.pop();
+          }
+          
+          p.pop();
         }
       } else if (algorithm === 'dither') {
         // Placeholder for Dither algorithm
