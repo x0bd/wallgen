@@ -659,11 +659,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Lower complexity = larger cells (easier to see the patterns)
         const baseSize = Math.max(20, Math.floor(50 - normalizedParams.complexity * 0.4));
         
-        // Get the number of available colors - use at least 3
+        // Get the number of available colors - including background color
         const colorsList = colors.foregroundColors || [colors.foreground];
-        const stateCount = Math.max(3, colorsList.length);
+        const stateCount = Math.max(3, colorsList.length + 1); // +1 to include background color
         
-        console.log(`Creating Hex Lattice with ${stateCount} states based on available colors`);
+        console.log(`Creating Hex Lattice with ${stateCount} states based on available colors (including background)`);
         
         // Create new hex lattice with full canvas dimensions
         const lattice = new HexLattice(p.width, p.height, baseSize, stateCount);
@@ -1036,20 +1036,20 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         let cellColors: any[] = [];
         
         if (colors.foregroundColors && colors.foregroundColors.length > 0) {
-          // Use all available colors from the theme
-          cellColors = colors.foregroundColors;
+          // Include the background color as part of the palette
+          cellColors = [colors.background, ...colors.foregroundColors];
         } else {
-          // Create color variations from the foreground color
+          // Create color variations from the foreground color and include background
           const [fr, fg, fb] = getRGB(colors.foreground);
           
-          // Create at least 3 color variations
+          // Create variations and include background color
           cellColors = [
+            colors.background, // Include background color as one of the states
             colors.foreground,
             p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
             p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
             p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
-            p.color(fr * 1.1, fg * 1.1, fb * 0.7), // Yellowish variation
-            p.color(fr * 1.0, fg * 0.7, fb * 1.2)  // Purplish variation
+            p.color(fr * 1.1, fg * 1.1, fb * 0.7) // Yellowish variation
           ];
         }
         
