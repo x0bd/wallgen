@@ -54,7 +54,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
 
   // Helper function to check if the current algorithm is image-based
   const checkIfImageBasedAlgorithm = useCallback((algo: string) => {
-    return ['flowImage', 'dither', 'ascii'].includes(algo);
+    return ['flowPlotter', 'dither', 'ascii'].includes(algo);
   }, []);
 
   // Update the image-based algorithm tracking whenever algorithm changes
@@ -675,11 +675,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         particles = [lattice];
         
         console.log(`Initialized hex lattice with cell size ${baseSize}px`);
-      } else if (algorithm === 'flowImage') {
+      } else if (algorithm === 'flowPlotter') {
         particles = []; // Clear any previous image data
         
         p.loadImage(params.imageUrl || '/images/wall.jpg', (img: any) => {
-          console.log(`Loaded image for flowImage: ${img.width}x${img.height}`);
+          console.log(`Loaded image for flowPlotter: ${img.width}x${img.height}`);
           
           // Store image dimensions for future reference
           imageCanvasDimensions.current = { width: img.width, height: img.height };
@@ -724,10 +724,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           }
           particles[0].pixelBuffer = pixelData;
           
-          // Reset animation timer for flowImage
+          // Reset animation timer for flowPlotter
           time = 0;
         }, (err: any) => {
-          console.error("FlowImage: Error loading image:", err);
+          console.error("FlowPlotter: Error loading image:", err);
           p.background(bgR, bgG, bgB); // Fallback to theme background
         });
       } else if (algorithm === 'dither') {
@@ -1069,21 +1069,26 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         
         // Draw border around the canvas - now disabled in this function
         drawBorder(colors.foreground);
-      } else if (algorithm === 'flowImage' && particles.length > 0 && particles[0] && particles[0].img) {
-        // For flowImage we use the actual image dimensions
+      } else if (algorithm === 'flowPlotter' && particles.length > 0 && particles[0] && particles[0].img) {
+        // For flowPlotter we use the actual image dimensions
         const imgData = particles[0];
         
         // Get the image dimensions for reference
         const imgWidth = imgData.img.width;
         const imgHeight = imgData.img.height;
         
+        // Calculate image resolution and megapixels
+        const imgResolution = imgWidth * imgHeight;
+        const megapixels = imgResolution / 1000000; // Convert to MP
+        
         // MUCH more aggressive parameters for maximum density
         const noiseScale = 0.001 / 10; // Keep original noise scale
         const strokeLength = 15; // Original stroke length
         const drawLength = 400; // Shorter animation to reach max density faster
         
-        // Increment time at a faster rate to reduce white space quicker
-        time += 1.5; // 1.5x speed
+        // Increment time at a faster rate for higher resolution images
+        const timeMultiplier = Math.min(3, Math.max(1, megapixels / 2)); // Scale time speed with resolution
+        time += 1.5 * timeMultiplier; // 1.5x speed, further boosted by resolution
         
         if (time > drawLength && !currentIsSaving) { 
           // Effect finished, but continue for saving if needed
@@ -1091,22 +1096,53 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           // Translate to center image just like the reference implementation
           p.push();
           
-          // The exact pattern from flow.js reference: center the image in the viewport
+          // Center the image in the viewport
           p.translate(
             p.width / 2 - imgWidth / 2,
             p.height / 2 - imgHeight / 2
           );
           
-          // DRAMATICALLY increase the count for ultra-dense strokes
-          // Original was: const count = p.map(time, 0, drawLength, 2, 80);
-          const baseCount = p.map(time, 0, drawLength, 20, 400); // 5x more strokes
+          // ULTRA-AGGRESSIVE scaling for 8K images
+          // Base resolution reference (1MP = 1 million pixels)
+          const baseResolution = 1000000;
           
-          // Boost count even more for early frames to fill white space quickly
-          const earlyBoost = time < drawLength * 0.3 ? 1.5 : 1.0;
-          const count = Math.floor(baseCount * earlyBoost);
+          // Remove density multiplier cap for ultra-high resolutions
+          // Original was: const densityMultiplier = Math.min(4, Math.max(1, Math.sqrt(imgResolution / baseResolution)));
+          // For 8K (33MP), this would give: sqrt(33) ≈ 5.7, but was capped at 4
+          
+          // New calculation - use logarithmic scaling for extreme resolutions to prevent overwhelming the browser
+          // For 1MP: log(1+1)/log(2) = 1
+          // For 8MP (4K): log(8+1)/log(2) = 3.17
+          // For 33MP (8K): log(33+1)/log(2) = 5.09
+          const densityMultiplier = Math.max(1, Math.log(megapixels + 1) / Math.log(2)) * 1.5;
+          
+          console.log(`Image: ${imgWidth}x${imgHeight} (${megapixels.toFixed(1)}MP), Density multiplier: ${densityMultiplier.toFixed(2)}`);
+          
+          // Higher density initially to cover white spaces faster
+          const timeProgress = time / drawLength;
+          const timeBasedDensity = timeProgress < 0.3 ? 
+            p.map(timeProgress, 0, 0.3, 3.5, 1.5) : 
+            p.map(timeProgress, 0.3, 1, 1.5, 1);
+            
+          // Combine all multipliers for final density
+          const combinedMultiplier = densityMultiplier * timeBasedDensity;
+          
+          // DRAMATICALLY increase base count range
+          // Original was 2-80 strokes per frame
+          // Previous increase was 20-400
+          // Now scale even higher for 8K support
+          const baseCount = p.map(time, 0, drawLength, 50, 800); 
+          const count = Math.floor(baseCount * combinedMultiplier * (params.density ? params.density / 100 : 1));
+          
+          // Resolution-aware stroke thickness
+          // Thinner strokes for higher resolutions to avoid overwhelming the image
+          const baseStrokeThickness = params.strokeThickness || 50;
+          const thicknessScale = Math.max(0.5, 1 / Math.sqrt(megapixels / 2));
+          const startThickness = baseStrokeThickness * thicknessScale;
+          const strokeWeight = p.map(time, 0, drawLength, startThickness, 0.5);
           
           // Add multiple stroke layers with different properties for better coverage
-          // Layer 1: Main strokes following reference approach but denser
+          // Layer 1: Main strokes following reference approach but ultra-dense
           for (let i = 0; i < count; i++) {
             // Pick a random point on the image
             const x = Math.floor(p.random(imgWidth));
@@ -1123,10 +1159,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
             
             // Set stroke color
             p.stroke(r, g, b, a);
-            
-            // Start with thicker strokes and decrease over time
-            const sw = p.map(time, 0, drawLength, 25, 0);
-            p.strokeWeight(sw);
+            p.strokeWeight(strokeWeight);
             
             p.push();
             p.translate(x, y);
@@ -1140,24 +1173,25 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
             
             // Draw a highlight for more detail
             p.stroke(Math.min(r * 3, 255), Math.min(g * 3, 255), Math.min(b * 3, 255), p.random(100));
-            p.strokeWeight(sw * 0.8);
-            p.line(0, -sw * 0.15, strokeLength * lengthVariation, -sw * 0.15);
+            p.strokeWeight(strokeWeight * 0.8);
+            p.line(0, -strokeWeight * 0.15, strokeLength * lengthVariation, -strokeWeight * 0.15);
             
             p.pop();
           }
           
-          // Layer 2: Add background filling strokes every X frames
-          if (time < drawLength * 0.5 && time % 10 === 0) {
-            // Every 10 frames, add extra wide strokes
-            const wideCount = Math.floor(count / 4);
+          // Layer 2: Add background filling strokes more frequently for higher resolutions
+          // For 8K+ images, run this filler layer more frequently
+          const fillerFrequency = Math.max(1, Math.floor(10 / Math.sqrt(megapixels)));
+          if (time < drawLength * 0.6 && time % fillerFrequency === 0) {
+            // More frequent wide strokes for ultra-high resolution
+            const wideCount = Math.floor(count / 3); // Increase from 1/4 to 1/3 for better coverage
+            
+            // Use a grid-based strategy for complete coverage
+            const gridSize = Math.ceil(Math.sqrt(wideCount));
+            const cellWidth = imgWidth / gridSize;
+            const cellHeight = imgHeight / gridSize; 
             
             for (let i = 0; i < wideCount; i++) {
-              // Target areas that are more likely to be white by using a pattern
-              // Divide canvas into grid and ensure we hit each cell
-              const gridSize = Math.ceil(Math.sqrt(wideCount));
-              const cellWidth = imgWidth / gridSize;
-              const cellHeight = imgHeight / gridSize; 
-              
               const gridX = i % gridSize;
               const gridY = Math.floor(i / gridSize);
               
@@ -1174,7 +1208,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
               
               // Draw wider strokes at lower opacity to fill gaps
               p.stroke(r, g, b, Math.max(100, a/2));
-              const wideSw = p.map(time, 0, drawLength, 40, 15);
+              const wideSw = p.map(time, 0, drawLength, startThickness * 1.5, 15);
               p.strokeWeight(wideSw);
               
               p.push();
@@ -1185,19 +1219,49 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
               p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
               
               // Longer strokes to fill more space
-              const extraLength = strokeLength * 1.5;
+              const extraLength = strokeLength * 1.8; // Increased from 1.5
               p.line(0, 0, extraLength, 0);
               
               p.pop();
             }
           }
           
-          // Layer 3: Add occasional full image tint for base coverage
-          if (time < drawLength * 0.4 && time % 40 === 0) {
-            // Every 40 frames, add a very transparent overlay of the full image
+          // Layer 3: For extremely high-resolution images, add a full-image overlay more frequently
+          const overlayFrequency = Math.max(5, Math.floor(40 / Math.sqrt(megapixels)));
+          if (time < drawLength * 0.5 && time % overlayFrequency === 0) {
+            // Every N frames (fewer for higher resolution), add a very transparent overlay
             p.push();
-            p.tint(255, 10); // Very low opacity
+            p.tint(255, 8); // Very low opacity - reduced to be more subtle
             p.image(imgData.img, 0, 0, imgWidth, imgHeight);
+            p.pop();
+          }
+          
+          // Layer 4: For 8K+ images, periodically add a blanket of ultra-tiny strokes
+          if (megapixels > 20 && time < drawLength * 0.7 && time % 15 === 0) {
+            const microCount = Math.floor(count * 0.5);
+            p.push();
+            p.strokeWeight(1); // Ultra-thin strokes
+            
+            for (let i = 0; i < microCount; i++) {
+              const x = Math.floor(p.random(imgWidth));
+              const y = Math.floor(p.random(imgHeight));
+              
+              const index = (y * imgWidth + x) * 4;
+              const r = imgData.img.pixels[index];
+              const g = imgData.img.pixels[index + 1];
+              const b = imgData.img.pixels[index + 2];
+              
+              // Very low opacity micro-strokes
+              p.stroke(r, g, b, 40);
+              
+              p.push();
+              p.translate(x, y);
+              const angle = p.random(p.TWO_PI);
+              p.rotate(angle);
+              p.line(0, 0, 5, 0); // Very short strokes
+              p.pop();
+            }
+            
             p.pop();
           }
           

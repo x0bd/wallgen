@@ -69,16 +69,16 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => setAlgorithm('flowImage')}
+              onClick={() => setAlgorithm('flowPlotter')}
               disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
-                ${algorithm === 'flowImage' 
+                ${algorithm === 'flowPlotter' 
                   ? 'bg-black text-white dark:bg-white dark:text-black' 
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
-              <Image size={14} className={`${algorithm === 'flowImage' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
-              <span>FLOW IMAGE</span>
+              <Image size={14} className={`${algorithm === 'flowPlotter' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
+              <span>FLOW PLOTTER</span>
             </button>
             
             <button 

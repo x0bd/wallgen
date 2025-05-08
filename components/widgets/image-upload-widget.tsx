@@ -1,10 +1,10 @@
 import React, { useRef } from 'react';
 import { useAlgorithm } from '@/context/algorithm-context';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, RefreshCw } from 'lucide-react';
+import { Upload, RefreshCw, Image } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { ToggleWidget } from '@/components/ui/toggle-widget';
 
 const ImageUploadWidget = () => {
   const { params, updateParams, uploadImage, resetImage } = useAlgorithm();
@@ -42,12 +42,12 @@ const ImageUploadWidget = () => {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Image Settings</CardTitle>
-        <CardDescription>Upload an image for the flow image effect</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <ToggleWidget
+      title="Image Settings"
+      icon={<Image size={14} />}
+      className="w-full"
+    >
+      <div className="space-y-5">
         {/* Hidden file input */}
         <input
           type="file"
@@ -77,11 +77,25 @@ const ImageUploadWidget = () => {
           </Button>
         </div>
 
-        <div className="pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <Label htmlFor="stroke-length">Stroke Length</Label>
-            <span className="text-sm text-muted-foreground">{params.strokeLength}</span>
+        {/* Show current image preview if available */}
+        {params.imageUrl && (
+          <div className="rounded-lg overflow-hidden bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] p-3 flex flex-col items-center justify-center border border-black/10 dark:border-white/10">
+            <div className="w-full h-auto border rounded overflow-hidden">
+              <img
+                src={params.imageUrl}
+                alt="Flow Plotter"
+                className="w-full h-auto object-cover"
+                style={{ maxHeight: "100px" }}
+              />
+            </div>
+            <p className="text-xs font-mono tracking-tight mt-2 text-center opacity-70">
+              Current Image
+            </p>
           </div>
+        )}
+
+        <div className="space-y-2.5">
+          <label className="text-xs font-mono tracking-tight block">Stroke Length</label>
           <Slider
             id="stroke-length"
             min={5}
@@ -90,13 +104,13 @@ const ImageUploadWidget = () => {
             value={[params.strokeLength || 15]}
             onValueChange={handleStrokeLengthChange}
           />
+          <div className="flex justify-end">
+            <span className="text-xs font-mono opacity-50">{params.strokeLength}</span>
+          </div>
         </div>
 
-        <div className="pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <Label htmlFor="stroke-thickness">Stroke Thickness</Label>
-            <span className="text-sm text-muted-foreground">{params.strokeThickness}</span>
-          </div>
+        <div className="space-y-2.5">
+          <label className="text-xs font-mono tracking-tight block">Stroke Thickness</label>
           <Slider
             id="stroke-thickness"
             min={10}
@@ -105,24 +119,12 @@ const ImageUploadWidget = () => {
             value={[params.strokeThickness || 50]}
             onValueChange={handleStrokeThicknessChange}
           />
-        </div>
-
-        {/* Show current image preview if available */}
-        {params.imageUrl && (
-          <div className="mt-4">
-            <Label>Current Image</Label>
-            <div className="mt-2 border rounded overflow-hidden">
-              <img
-                src={params.imageUrl}
-                alt="Flow Image"
-                className="w-full h-auto object-cover"
-                style={{ maxHeight: "150px" }}
-              />
-            </div>
+          <div className="flex justify-end">
+            <span className="text-xs font-mono opacity-50">{params.strokeThickness}</span>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </ToggleWidget>
   );
 };
 

@@ -12,7 +12,7 @@ export function WidgetSidebar() {
   
   return (
     <WidgetContainer position="right">
-      {algorithm === 'flowImage' && (
+      {algorithm === 'flowPlotter' && (
         <ImageUploadWidget />
       )}
       <ParametersWidget />
