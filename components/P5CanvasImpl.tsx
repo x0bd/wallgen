@@ -163,7 +163,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.x = p.random(p.width);
         this.y = p.random(p.height);
         this.color = particleColor;
-        this.size = 3; // Slightly larger than reference (2) for better visibility on large canvas
+        this.size = 2; // Exact reference value (2) for authentic look
       }
       
       update(moveSpeed: number, moveScale: number) {
@@ -609,8 +609,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       resetQuadtree();
       
       if (algorithm === 'perlinNoise') {
-        // Use more particles than reference but not too many
-        const particleCount = 800; // Compromise between reference (500) and density needs
+        // Use particle count exactly like reference
+        const particleCount = 500; // Exact reference value (500)
         
         // Create color palette exactly like reference
         const particleColors = [];
@@ -1006,8 +1006,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Reset quadtree for efficiency
         resetQuadtree();
         
-        // Use values closer to the reference with slight adjustment for larger canvas
-        const moveSpeed = 0.5; // Just slightly faster than reference (0.4)
+        // Use exact values from the reference implementation
+        const moveSpeed = 0.4; // Exact reference value for authentic motion
         const moveScale = 800; // Exact reference value
         
         // Update the time factor based on speed parameter for user control
