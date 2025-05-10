@@ -880,50 +880,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         }
         
         drawBorder(colors.foreground);
-      } else if (algorithm === 'gradients') {
-        // Placeholder for Gradients algorithm
-        p.background(bgR, bgG, bgB);
-         
-        // Create a gradient using foreground colors
-        const gradientColors = colors.foregroundColors || [colors.foreground];
-        p.noStroke();
-         
-        // Draw gradient bands
-        const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
-        const bandHeight = p.height / numBands;
-         
-        for (let i = 0; i < numBands; i++) {
-          const colorIndex = i % gradientColors.length;
-          const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
-          p.fill(cr, cg, cb, 200);
-          p.rect(0, i * bandHeight, p.width, bandHeight);
-        }
-         
-        // Add some animated waves for visual interest
-        time += normalizedParams.speed * 0.01;
-        p.stroke(255, 255, 255, 40);
-        p.strokeWeight(2);
-        p.noFill();
-         
-        for (let i = 0; i < 5; i++) {
-          p.beginShape();
-          for (let x = 0; x < p.width; x += 20) {
-            const y = p.height / 2 + 
-                     Math.sin(x * 0.01 + time + i) * (50 + i * 20) + 
-                     Math.cos(x * 0.02 + time * 0.7) * (30 + i * 15);
-            p.vertex(x, y);
-          }
-          p.endShape();
-        }
-         
-        drawBorder(colors.foreground);
       } else {
-        // For all other algorithms, reset to master canvas size
-        imageCanvasDimensions.current = null;
-        if (p.width !== MASTER_CANVAS_SIZE || p.height !== MASTER_CANVAS_SIZE) {
-          p.resizeCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE);
-          updateCanvasStyles();
-        }
+        // Default fallback: clear background and draw border
+        p.background(bgR, bgG, bgB);
+        drawBorder(colors.foreground);
       }
     };
 
@@ -1218,43 +1178,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           }
         }
         
-        drawBorder(colors.foreground);
-      } else if (algorithm === 'gradients') {
-        // Placeholder for Gradients algorithm
-        p.background(bgR, bgG, bgB);
-         
-        // Create a gradient using foreground colors
-        const gradientColors = colors.foregroundColors || [colors.foreground];
-        p.noStroke();
-         
-        // Draw gradient bands
-        const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
-        const bandHeight = p.height / numBands;
-         
-        for (let i = 0; i < numBands; i++) {
-          const colorIndex = i % gradientColors.length;
-          const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
-          p.fill(cr, cg, cb, 200);
-          p.rect(0, i * bandHeight, p.width, bandHeight);
-        }
-         
-        // Add some animated waves for visual interest
-        time += normalizedParams.speed * 0.01;
-        p.stroke(255, 255, 255, 40);
-        p.strokeWeight(2);
-        p.noFill();
-         
-        for (let i = 0; i < 5; i++) {
-          p.beginShape();
-          for (let x = 0; x < p.width; x += 20) {
-            const y = p.height / 2 + 
-                     Math.sin(x * 0.01 + time + i) * (50 + i * 20) + 
-                     Math.cos(x * 0.02 + time * 0.7) * (30 + i * 15);
-            p.vertex(x, y);
-          }
-          p.endShape();
-        }
-         
         drawBorder(colors.foreground);
       } else {
         p.background(bgR, bgG, bgB);

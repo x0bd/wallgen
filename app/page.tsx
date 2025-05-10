@@ -82,19 +82,6 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => setAlgorithm('gradients')}
-              disabled={isSaving}
-              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
-                ${algorithm === 'gradients' 
-                  ? 'bg-black text-white dark:bg-white dark:text-black' 
-                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
-            >
-              <Palette size={14} className={`${algorithm === 'gradients' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
-              <span>GRADIENTS [WIP]</span>
-            </button>
-            
-            <button 
               onClick={() => setAlgorithm('abstract')}
               disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 

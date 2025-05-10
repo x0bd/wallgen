@@ -77,22 +77,7 @@ const ImageUploadWidget = () => {
           </Button>
         </div>
 
-        {/* Show current image preview if available */}
-        {params.imageUrl && (
-          <div className="rounded-lg overflow-hidden bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] p-3 flex flex-col items-center justify-center border border-black/10 dark:border-white/10">
-            <div className="w-full h-auto border rounded overflow-hidden">
-              <img
-                src={params.imageUrl}
-                alt="Flow Plotter"
-                className="w-full h-auto object-cover"
-                style={{ maxHeight: "100px" }}
-              />
-            </div>
-            <p className="text-xs font-mono tracking-tight mt-2 text-center opacity-70">
-              Current Image
-            </p>
-          </div>
-        )}
+        {/* Image preview removed as it wasn't working correctly */}
 
         <div className="space-y-2.5">
           <label className="text-xs font-mono tracking-tight block">Stroke Length</label>
