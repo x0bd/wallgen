@@ -406,6 +406,313 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     }
     
+    // Dashed Lines Abstract Algorithm Implementation
+    class DashedLinesAbstract {
+      private cells: number;
+      private offset: number;
+      private d: number;
+      private t: number;
+      private palette: any[];
+      private bg: any;
+
+      constructor(private p5: any) {
+        this.cells = 10;
+        this.offset = p5.width / 10;
+        this.d = (p5.width - this.offset * 2) / this.cells;
+        this.t = 0;
+        
+        // Select a random color scheme from palettes
+        const colorScheme = [
+          { colors: ["#F27EA9", "#366CD9", "#5EADF2", "#636E73", "#F2E6D8"] },
+          { colors: ["#D962AF", "#58A6A6", "#8AA66F", "#F29F05", "#F26D6D"] },
+          { colors: ["#222940", "#D98E04", "#F2A950", "#BF3E21", "#F2F2F2"] },
+          { colors: ["#1B618C", "#55CCD9", "#F2BC57", "#F2DAAC", "#F24949"] },
+          { colors: ["#074A59", "#F2C166", "#F28241", "#F26B5E", "#F2F2F2"] },
+          { colors: ["#023059", "#459DBF", "#87BF60", "#D9D16A", "#F2F2F2"] },
+          { colors: ["#632973", "#02734A", "#F25C05", "#F29188", "#F2E0DF"] },
+          { colors: ["#8D95A6", "#0A7360", "#F28705", "#D98825", "#F2F2F2"] },
+          { colors: ["#4146A6", "#063573", "#5EC8F2", "#8C4E03", "#D98A29"] },
+          { colors: ["#034AA6", "#72B6F2", "#73BFB1", "#F2A30F", "#F26F63"] },
+          { colors: ["#303E8C", "#F2AE2E", "#F28705", "#D91414", "#F2F2F2"] },
+          { colors: ["#424D8C", "#84A9BF", "#C1D9CE", "#F2B705", "#F25C05"] },
+          { colors: ["#D9D7D8", "#3B5159", "#5D848C", "#7CA2A6", "#262321"] },
+          { colors: ["#906FA6", "#025951", "#252625", "#D99191", "#F2F2F2"] }
+        ];
+        
+        const randomScheme = p.random(colorScheme);
+        this.palette = [...randomScheme.colors].map(color => p.color(color));
+        this.bg = this.palette[0];
+        this.palette.splice(0, 1);
+      }
+
+      easeInOutCirc(x: number): number {
+        return x < 0.5
+          ? (1 - Math.sqrt(1 - Math.pow(2 * x, 2))) / 2
+          : (Math.sqrt(1 - Math.pow(-2 * x + 2, 2)) + 1) / 2;
+      }
+
+      draw() {
+        const { p5 } = this;
+        
+        p5.background(this.bg);
+        p5.blendMode(p5.MULTIPLY);
+        p5.background(0, 0, 0, (33 / 100) * 255);
+        p5.blendMode(p5.BLEND);
+        
+        p5.randomSeed(0);
+        p5.strokeWeight(this.d / 5);
+        
+        // Set shadow for lines
+        (p5.drawingContext as CanvasRenderingContext2D).shadowColor = p5.color(0, 0, 0);
+        (p5.drawingContext as CanvasRenderingContext2D).shadowBlur = 10;
+        
+        const l = this.d * Math.sqrt(2);
+        
+        for (let j = 0; j < this.cells; j++) {
+          for (let i = 0; i < this.cells; i++) {
+            const colors = p5.shuffle([...this.palette]);
+            const x = this.offset + i * this.d + this.d / 2;
+            const y = this.offset + j * this.d + this.d / 2;
+            
+            let v = (this.t + (x + y * p5.width) / (p5.width * p5.height)) % 1;
+            v = p5.map(Math.sin(v * Math.PI * 2), -1, 1, 0, 1);
+            v = this.easeInOutCirc(v);
+            
+            p5.push();
+            p5.translate(x, y);
+            p5.scale(
+              p5.random() > 0.5 ? -1 : 1,
+              p5.random() > 0.5 ? -1 : 1
+            );
+            
+            // Set line dash pattern
+            (p5.drawingContext as CanvasRenderingContext2D).setLineDash([l, l * 2]);
+            (p5.drawingContext as CanvasRenderingContext2D).lineDashOffset = v * l * 3;
+            
+            // Create gradient
+            const gradient = (p5.drawingContext as CanvasRenderingContext2D)
+              .createLinearGradient(-l / 2, 0, l / 2, 0);
+            
+            gradient.addColorStop(0, p5.lerpColor(
+              colors[0],
+              colors[1],
+              v
+            ));
+            
+            gradient.addColorStop(1, p5.lerpColor(
+              colors[2],
+              colors[3],
+              v
+            ));
+            
+            (p5.drawingContext as CanvasRenderingContext2D).strokeStyle = gradient;
+            
+            p5.line(-this.d / 2, -this.d / 2, this.d / 2, this.d / 2);
+            p5.pop();
+          }
+        }
+        
+        this.t = (this.t + 1 / 200) % 1;
+      }
+    }
+    
+    // Abstract Generative Class
+    class AbstractGenerative {
+      private numShapes: number;
+      private maxSize: number;
+      private time: number;
+      
+      constructor(private p5: any, private bgColor: any, private fgColors: any[]) {
+        this.numShapes = 20;
+        this.maxSize = Math.floor(p5.width / 4);
+        this.time = 0;
+      }
+      
+      update(speed: number) {
+        this.time += speed * 0.01;
+      }
+      
+      draw() {
+        const { p5 } = this;
+        
+        // Use perlin noise for organic movement
+        for (let i = 0; i < this.numShapes; i++) {
+          const colorIndex = i % this.fgColors.length;
+          const fgColor = this.fgColors[colorIndex];
+          
+          // Extract RGB values
+          const fr = p5.red(fgColor);
+          const fg = p5.green(fgColor);
+          const fb = p5.blue(fgColor);
+          const bgR = p5.red(this.bgColor);
+          const bgG = p5.green(this.bgColor);
+          const bgB = p5.blue(this.bgColor);
+          
+          // Vary opacity based on position
+          const alpha = p5.map(i, 0, this.numShapes, 100, 255);
+          
+          // Get noise-based positions
+          const noiseScale = 0.001;
+          const noiseTime = this.time * 0.2;
+          
+          const nx = p5.noise(i * 0.3, noiseTime) * p5.width;
+          const ny = p5.noise(i * 0.3 + 100, noiseTime) * p5.height;
+          
+          // Choose shape type based on noise
+          const shapeType = Math.floor(p5.noise(i * 0.5, this.time * 0.1) * 4);
+          
+          p5.push();
+          p5.translate(nx, ny);
+          p5.rotate(this.time * (i % 5) * 0.02);
+          
+          // Size varies with noise
+          const size = p5.noise(i * 0.2, this.time * 0.05) * this.maxSize;
+          
+          // Draw different abstract shapes
+          p5.fill(fr, fg, fb, alpha);
+          p5.noStroke();
+          
+          if (shapeType === 0) {
+            // Circles with cutouts
+            p5.ellipse(0, 0, size, size);
+            p5.fill(bgR, bgG, bgB);
+            p5.ellipse(0, 0, size * 0.6, size * 0.6);
+          } 
+          else if (shapeType === 1) {
+            // Random polygon
+            p5.beginShape();
+            const vertices = Math.floor(3 + p5.noise(i, this.time * 0.1) * 5);
+            for (let v = 0; v < vertices; v++) {
+              const angle = p5.map(v, 0, vertices, 0, p5.TWO_PI);
+              const rad = size * 0.5 * (0.5 + p5.noise(i, v, this.time * 0.05) * 0.5);
+              const vx = p5.cos(angle) * rad;
+              const vy = p5.sin(angle) * rad;
+              p5.vertex(vx, vy);
+            }
+            p5.endShape(p5.CLOSE);
+          }
+          else if (shapeType === 2) {
+            // Curved lines
+            p5.noFill();
+            p5.stroke(fr, fg, fb, alpha);
+            p5.strokeWeight(3 + p5.noise(i, this.time) * 8);
+            
+            p5.beginShape();
+            for (let v = 0; v < 10; v++) {
+              const angle = p5.map(v, 0, 10, 0, p5.TWO_PI);
+              const rad = size * 0.5 * p5.noise(i, v * 0.2, this.time * 0.1);
+              const vx = p5.cos(angle) * rad;
+              const vy = p5.sin(angle) * rad;
+              p5.curveVertex(vx, vy);
+            }
+            p5.endShape();
+          }
+          else {
+            // Abstract blobs
+            p5.beginShape();
+            const steps = 15;
+            for (let v = 0; v <= steps; v++) {
+              const angle = p5.map(v, 0, steps, 0, p5.TWO_PI);
+              // Use perlin noise to create blob-like shapes
+              const radius = size * 0.5 * p5.map(p5.noise(i * 0.5, this.time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
+              const vx = p5.cos(angle) * radius;
+              const vy = p5.sin(angle) * radius;
+              p5.curveVertex(vx, vy);
+            }
+            p5.endShape(p5.CLOSE);
+          }
+          
+          p5.pop();
+        }
+        
+        // Add some connecting lines between shapes for composition
+        p5.stroke(255, 255, 255, 30);
+        p5.strokeWeight(1);
+        const lineCount = 10;
+        
+        for (let i = 0; i < lineCount; i++) {
+          const x1 = p5.noise(i * 0.5, this.time * 0.1) * p5.width;
+          const y1 = p5.noise(i * 0.5 + 100, this.time * 0.1) * p5.height;
+          const x2 = p5.noise(i * 0.5 + 200, this.time * 0.1) * p5.width;
+          const y2 = p5.noise(i * 0.5 + 300, this.time * 0.1) * p5.height;
+          
+          p5.line(x1, y1, x2, y2);
+        }
+      }
+    }
+    
+    // Circle Grid Class
+    class CircleGridAbstract {
+      private cols: number;
+      private rows: number;
+      private time: number;
+      private cellSize: number;
+      
+      constructor(private p5: any, private bgColor: any, private fgColors: any[]) {
+        this.cols = 12;
+        this.rows = 12;
+        this.time = 0;
+        this.cellSize = p5.min(p5.width, p5.height) / this.cols;
+      }
+      
+      update(speed: number) {
+        this.time += speed * 0.005;
+      }
+      
+      draw() {
+        const { p5 } = this;
+        const bgR = p5.red(this.bgColor);
+        const bgG = p5.green(this.bgColor);
+        const bgB = p5.blue(this.bgColor);
+        
+        p5.noStroke();
+        
+        // Draw circles in a grid pattern
+        for (let i = 0; i < this.cols; i++) {
+          for (let j = 0; j < this.rows; j++) {
+            const x = (i + 0.5) * this.cellSize;
+            const y = (j + 0.5) * this.cellSize;
+            
+            // Create a sinusoidal wave pattern based on position and time
+            const distFromCenter = p5.dist(x, y, p5.width/2, p5.height/2);
+            const sizeOffset = p5.sin((distFromCenter * 0.01) + this.time) * 0.5 + 0.5;
+            
+            // Each position gets a unique color cycling through the palette
+            const colorIndex = (i + j * this.cols) % this.fgColors.length;
+            const fgColor = this.fgColors[colorIndex];
+            
+            // Extract RGB values
+            const fr = p5.red(fgColor);
+            const fg = p5.green(fgColor);
+            const fb = p5.blue(fgColor);
+            
+            // Calculate radius with animation
+            const baseRadius = this.cellSize * 0.4;
+            const radius = baseRadius * (0.2 + sizeOffset * 0.8);
+            
+            // Draw outer circle
+            p5.fill(fr, fg, fb, 200);
+            p5.ellipse(x, y, radius * 2, radius * 2);
+            
+            // Draw inner circle (creates a ring effect)
+            p5.fill(bgR, bgG, bgB);
+            p5.ellipse(x, y, radius * 2 * 0.7, radius * 2 * 0.7);
+            
+            // Add small dots
+            p5.fill(fr, fg, fb);
+            const dotCount = 4;
+            for (let k = 0; k < dotCount; k++) {
+              const angle = (k / dotCount) * p5.TWO_PI + this.time * 2;
+              const dotRadius = radius * 0.85;
+              const dotX = x + p5.cos(angle) * dotRadius;
+              const dotY = y + p5.sin(angle) * dotRadius;
+              p5.ellipse(dotX, dotY, this.cellSize * 0.1, this.cellSize * 0.1);
+            }
+          }
+        }
+      }
+    }
+    
     // Flow Image Implementation
     class FlowImageParticle {
       x: number;
@@ -730,6 +1037,33 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           console.error("FlowPlotter: Error loading image:", err);
           p.background(bgR, bgG, bgB); // Fallback to theme background
         });
+      } else if (algorithm === 'abstract') {
+        console.log("Initializing abstract particles...");
+        
+        // Reference to instances for variant-specific drawing
+        let abstractParticles = null;
+        let circleGridInstance = null;
+        let dashedLinesInstance = null;
+        
+        // Choose a random variant for abstract algorithm
+        const variant = Math.floor(p.random(3)); // Now 3 variants (0, 1, 2)
+        console.log(`Selected abstract variant: ${variant}`);
+        
+        if (variant === 0) {
+          // Create abstract generative art
+          const fgColors = colors.foregroundColors || [colors.foreground];
+          abstractParticles = new AbstractGenerative(p, colors.background, fgColors);
+        } else if (variant === 1) {
+          // Create circle grid abstract
+          const fgColors = colors.foregroundColors || [colors.foreground];
+          circleGridInstance = new CircleGridAbstract(p, colors.background, fgColors);
+        } else if (variant === 2) {
+          // Create dashed lines abstract variant
+          dashedLinesInstance = new DashedLinesAbstract(p);
+        }
+        
+        // Store reference for the draw loop
+        particles = [abstractParticles, circleGridInstance, dashedLinesInstance, variant];
       } else {
         // For all other algorithms, reset to master canvas size
         imageCanvasDimensions.current = null;
@@ -1067,116 +1401,24 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         }
         
         drawBorder(colors.foreground);
-      } else if (algorithm === 'abstract') {
-        // Abstract algorithm implementation
+      } else if (algorithm === 'abstract' && particles.length >= 4) {
+        // Clear the background with the current theme's background
         p.background(bgR, bgG, bgB);
         
-        // Use multiple foreground colors if available
-        const fgColors = colors.foregroundColors || [colors.foreground];
+        // Get the variant from particles array (stored at index 3)
+        const variant = particles[3];
         
-        // Update time for animation
-        time += normalizedParams.speed * 0.01;
-        
-        // Create abstract shapes based on complexity
-        const numShapes = Math.floor(10 + normalizedParams.complexity / 2);
-        const maxSize = Math.floor(p.width / 4);
-        
-        // Use perlin noise for organic movement
-        for (let i = 0; i < numShapes; i++) {
-          const colorIndex = i % fgColors.length;
-          const [fr, fg, fb] = getRGB(fgColors[colorIndex]);
-          
-          // Vary opacity based on position
-          const alpha = p.map(i, 0, numShapes, 100, 255);
-          
-          // Get noise-based positions
-          const noiseScale = normalizedParams.noiseScale * 0.001;
-          const noiseTime = time * 0.2;
-          
-          const nx = p.noise(i * 0.3, noiseTime) * p.width;
-          const ny = p.noise(i * 0.3 + 100, noiseTime) * p.height;
-          
-          // Choose shape type based on noise
-          const shapeType = Math.floor(p.noise(i * 0.5, time * 0.1) * 4);
-          
-          p.push();
-          p.translate(nx, ny);
-          p.rotate(time * (i % 5) * 0.02);
-          
-          // Size varies with noise
-          const size = p.noise(i * 0.2, time * 0.05) * maxSize;
-          
-          // Draw different abstract shapes
-          p.fill(fr, fg, fb, alpha);
-          p.noStroke();
-          
-          if (shapeType === 0) {
-            // Circles with cutouts
-            p.ellipse(0, 0, size, size);
-            p.fill(bgR, bgG, bgB);
-            p.ellipse(0, 0, size * 0.6, size * 0.6);
-          } 
-          else if (shapeType === 1) {
-            // Random polygon
-            p.beginShape();
-            const vertices = Math.floor(3 + p.noise(i, time * 0.1) * 5);
-            for (let v = 0; v < vertices; v++) {
-              const angle = p.map(v, 0, vertices, 0, p.TWO_PI);
-              const rad = size * 0.5 * (0.5 + p.noise(i, v, time * 0.05) * 0.5);
-              const vx = p.cos(angle) * rad;
-              const vy = p.sin(angle) * rad;
-              p.vertex(vx, vy);
-            }
-            p.endShape(p.CLOSE);
-          }
-          else if (shapeType === 2) {
-            // Curved lines
-            p.noFill();
-            p.stroke(fr, fg, fb, alpha);
-            p.strokeWeight(3 + p.noise(i, time) * 8);
-            
-            p.beginShape();
-            for (let v = 0; v < 10; v++) {
-              const angle = p.map(v, 0, 10, 0, p.TWO_PI);
-              const rad = size * 0.5 * p.noise(i, v * 0.2, time * 0.1);
-              const vx = p.cos(angle) * rad;
-              const vy = p.sin(angle) * rad;
-              p.curveVertex(vx, vy);
-            }
-            p.endShape();
-          }
-          else {
-            // Abstract blobs
-            p.beginShape();
-            const steps = 15;
-            for (let v = 0; v <= steps; v++) {
-              const angle = p.map(v, 0, steps, 0, p.TWO_PI);
-              // Use perlin noise to create blob-like shapes
-              const radius = size * 0.5 * p.map(p.noise(i * 0.5, time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
-              const vx = p.cos(angle) * radius;
-              const vy = p.sin(angle) * radius;
-              p.curveVertex(vx, vy);
-            }
-            p.endShape(p.CLOSE);
-          }
-          
-          p.pop();
-        }
-        
-        // Add some connecting lines between shapes for composition
-        if (normalizedParams.complexity > 50) {
-          p.stroke(255, 255, 255, 30);
-          p.strokeWeight(1);
-          const lineCount = Math.floor(normalizedParams.complexity / 10);
-          
-          for (let i = 0; i < lineCount; i++) {
-            const x1 = p.noise(i * 0.5, time * 0.1) * p.width;
-            const y1 = p.noise(i * 0.5 + 100, time * 0.1) * p.height;
-            const x2 = p.noise(i * 0.5 + 200, time * 0.1) * p.width;
-            const y2 = p.noise(i * 0.5 + 300, time * 0.1) * p.height;
-            
-            p.line(x1, y1, x2, y2);
-          }
+        if (variant === 0 && particles[0]) {
+          // Draw abstract generative art
+          particles[0].update(normalizedParams.speed);
+          particles[0].draw();
+        } else if (variant === 1 && particles[1]) {
+          // Draw circle grid abstract
+          particles[1].update(normalizedParams.speed);
+          particles[1].draw();
+        } else if (variant === 2 && particles[2]) {
+          // Draw dashed lines abstract
+          particles[2].draw();
         }
         
         drawBorder(colors.foreground);
