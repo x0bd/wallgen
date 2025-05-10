@@ -84,8 +84,6 @@ const defaultParams: AlgorithmParams = {
 
 // Default color options
 const defaultColorOptions: ColorOption[] = [
-  { id: "bw", background: "#000000", foreground: "#FFFFFF", label: "Black" },
-  { id: "wb", background: "#FFFFFF", foreground: "#000000", label: "White" },
   // AMOLED Black - True deep black for OLED displays with high contrast colors
   {
     id: "amoled",
@@ -132,13 +130,13 @@ const defaultColorOptions: ColorOption[] = [
     foregroundColors: ["#88c0d0", "#81a1c1", "#5e81ac", "#bf616a", "#a3be8c"],
     label: "Nord"
   },
-  // Vesper (I'll create a dark theme with purple accents)
+  // Gruvbox (formerly Vesper)
   {
-    id: "vesper",
+    id: "vesper", // ID can remain "vesper" or change to "gruvbox", let's keep for now to avoid breaking existing saved states if any.
     background: "#1d2021",
     foreground: "#d4be98",
     foregroundColors: ["#89b482", "#a9b665", "#d8a657", "#e78a4e", "#d3869b"],
-    label: "Vesper"
+    label: "Gruvbox"
   },
   // Mint
   {
