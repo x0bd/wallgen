@@ -22,7 +22,7 @@ export function Navbar() {
         
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link href="#" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
+          <Link href="/about" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
             <span>About</span>
             <motion.span 
               initial={{ width: 0 }}
@@ -79,7 +79,7 @@ export function Navbar() {
           className="md:hidden absolute top-full left-0 w-full bg-white/95 dark:bg-black/95 backdrop-blur-lg border-b border-black/10 dark:border-white/10 py-4 px-6"
         >
           <nav className="flex flex-col gap-4">
-            <Link href="#" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
+            <Link href="/about" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
               <span>About</span>
               <span className="text-xs opacity-50">01</span>
             </Link>
