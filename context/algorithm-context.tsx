@@ -3,8 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react'
 
 // Define algorithm types
-export type AlgorithmType = 'perlinNoise' | 'cellular' | 'gradients' | 'abstract' | 'flowPlotter' | 
-                          'abstract1' | 'abstract2' | 'abstract3' | 'abstract5';
+export type AlgorithmType = 'perlinNoise' | 'cellular' | 'abstract' | 'flowPlotter' | 'gradients'
 
 // Define the parameters for each algorithm
 export interface AlgorithmParams {

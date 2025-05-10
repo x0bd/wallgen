@@ -4,7 +4,7 @@ import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { SaveProgress } from "@/components/GenerationProgress";
-import { Waves, Hexagon, Wind, Image, Palette, CircleDashed } from "lucide-react";
+import { Waves, Hexagon, Wind, Image, CircleDashed, Palette } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
@@ -91,7 +91,7 @@ export default function Home() {
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
               <Palette size={14} className={`${algorithm === 'gradients' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
-              <span>GRADIENTS</span>
+              <span>GRADIENTS [WIP]</span>
             </button>
             
             <button 
@@ -104,7 +104,7 @@ export default function Home() {
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
               <CircleDashed size={14} className={`${algorithm === 'abstract' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
-              <span>ABSTRACT</span>
+              <span>ABSTRACT [WIP]</span>
             </button>
           </div>
         </div>

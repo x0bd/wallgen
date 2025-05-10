@@ -406,314 +406,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       }
     }
     
-    // Dashed Lines Abstract Algorithm Implementation
-    class DashedLinesAbstract {
-      private cells: number;
-      private offset: number;
-      private d: number;
-      private t: number;
-      private palette: any[];
-      private bg: any;
-
-      constructor(private p5: any) {
-        this.cells = 10;
-        this.offset = p5.width / 10;
-        this.d = (p5.width - this.offset * 2) / this.cells;
-        this.t = 0;
-        
-        // Select a random color scheme from palettes
-        const colorScheme = [
-          { colors: ["#F27EA9", "#366CD9", "#5EADF2", "#636E73", "#F2E6D8"] },
-          { colors: ["#D962AF", "#58A6A6", "#8AA66F", "#F29F05", "#F26D6D"] },
-          { colors: ["#222940", "#D98E04", "#F2A950", "#BF3E21", "#F2F2F2"] },
-          { colors: ["#1B618C", "#55CCD9", "#F2BC57", "#F2DAAC", "#F24949"] },
-          { colors: ["#074A59", "#F2C166", "#F28241", "#F26B5E", "#F2F2F2"] },
-          { colors: ["#023059", "#459DBF", "#87BF60", "#D9D16A", "#F2F2F2"] },
-          { colors: ["#632973", "#02734A", "#F25C05", "#F29188", "#F2E0DF"] },
-          { colors: ["#8D95A6", "#0A7360", "#F28705", "#D98825", "#F2F2F2"] },
-          { colors: ["#4146A6", "#063573", "#5EC8F2", "#8C4E03", "#D98A29"] },
-          { colors: ["#034AA6", "#72B6F2", "#73BFB1", "#F2A30F", "#F26F63"] },
-          { colors: ["#303E8C", "#F2AE2E", "#F28705", "#D91414", "#F2F2F2"] },
-          { colors: ["#424D8C", "#84A9BF", "#C1D9CE", "#F2B705", "#F25C05"] },
-          { colors: ["#D9D7D8", "#3B5159", "#5D848C", "#7CA2A6", "#262321"] },
-          { colors: ["#906FA6", "#025951", "#252625", "#D99191", "#F2F2F2"] }
-        ];
-        
-        const randomScheme = p.random(colorScheme);
-        this.palette = [...randomScheme.colors].map(color => p.color(color));
-        this.bg = this.palette[0];
-        this.palette.splice(0, 1);
-      }
-
-      easeInOutCirc(x: number): number {
-        return x < 0.5
-          ? (1 - Math.sqrt(1 - Math.pow(2 * x, 2))) / 2
-          : (Math.sqrt(1 - Math.pow(-2 * x + 2, 2)) + 1) / 2;
-      }
-
-      draw() {
-        const { p5 } = this;
-        
-        p5.background(this.bg);
-        p5.blendMode(p5.MULTIPLY);
-        p5.background(0, 0, 0, (33 / 100) * 255);
-        p5.blendMode(p5.BLEND);
-        
-        p5.randomSeed(0);
-        p5.strokeWeight(this.d / 5);
-        
-        // Set shadow for lines
-        (p5.drawingContext as CanvasRenderingContext2D).shadowColor = p5.color(0, 0, 0);
-        (p5.drawingContext as CanvasRenderingContext2D).shadowBlur = 10;
-        
-        const l = this.d * Math.sqrt(2);
-        
-        for (let j = 0; j < this.cells; j++) {
-          for (let i = 0; i < this.cells; i++) {
-            const colors = p5.shuffle([...this.palette]);
-            const x = this.offset + i * this.d + this.d / 2;
-            const y = this.offset + j * this.d + this.d / 2;
-            
-            let v = (this.t + (x + y * p5.width) / (p5.width * p5.height)) % 1;
-            v = p5.map(Math.sin(v * Math.PI * 2), -1, 1, 0, 1);
-            v = this.easeInOutCirc(v);
-            
-            p5.push();
-            p5.translate(x, y);
-            p5.scale(
-              p5.random() > 0.5 ? -1 : 1,
-              p5.random() > 0.5 ? -1 : 1
-            );
-            
-            // Set line dash pattern
-            (p5.drawingContext as CanvasRenderingContext2D).setLineDash([l, l * 2]);
-            (p5.drawingContext as CanvasRenderingContext2D).lineDashOffset = v * l * 3;
-            
-            // Create gradient
-            const gradient = (p5.drawingContext as CanvasRenderingContext2D)
-              .createLinearGradient(-l / 2, 0, l / 2, 0);
-            
-            gradient.addColorStop(0, p5.lerpColor(
-              colors[0],
-              colors[1],
-              v
-            ));
-            
-            gradient.addColorStop(1, p5.lerpColor(
-              colors[2],
-              colors[3],
-              v
-            ));
-            
-            (p5.drawingContext as CanvasRenderingContext2D).strokeStyle = gradient;
-            
-            p5.line(-this.d / 2, -this.d / 2, this.d / 2, this.d / 2);
-            p5.pop();
-          }
-        }
-        
-        this.t = (this.t + 1 / 200) % 1;
-      }
-    }
-    
-    // Abstract Generative Class
-    class AbstractGenerative {
-      private numShapes: number;
-      private maxSize: number;
-      private time: number;
-      
-      constructor(private p5: any, private bgColor: any, private fgColors: any[]) {
-        this.numShapes = 20;
-        this.maxSize = Math.floor(p5.width / 4);
-        this.time = 0;
-      }
-      
-      update(speed: number) {
-        this.time += speed * 0.01;
-      }
-      
-      draw() {
-        const { p5 } = this;
-        
-        // Use perlin noise for organic movement
-        for (let i = 0; i < this.numShapes; i++) {
-          const colorIndex = i % this.fgColors.length;
-          const fgColor = this.fgColors[colorIndex];
-          
-          // Extract RGB values
-          const fr = p5.red(fgColor);
-          const fg = p5.green(fgColor);
-          const fb = p5.blue(fgColor);
-          const bgR = p5.red(this.bgColor);
-          const bgG = p5.green(this.bgColor);
-          const bgB = p5.blue(this.bgColor);
-          
-          // Vary opacity based on position
-          const alpha = p5.map(i, 0, this.numShapes, 100, 255);
-          
-          // Get noise-based positions
-          const noiseScale = 0.001;
-          const noiseTime = this.time * 0.2;
-          
-          const nx = p5.noise(i * 0.3, noiseTime) * p5.width;
-          const ny = p5.noise(i * 0.3 + 100, noiseTime) * p5.height;
-          
-          // Choose shape type based on noise
-          const shapeType = Math.floor(p5.noise(i * 0.5, this.time * 0.1) * 4);
-          
-          p5.push();
-          p5.translate(nx, ny);
-          p5.rotate(this.time * (i % 5) * 0.02);
-          
-          // Size varies with noise
-          const size = p5.noise(i * 0.2, this.time * 0.05) * this.maxSize;
-          
-          // Draw different abstract shapes
-          p5.fill(fr, fg, fb, alpha);
-          p5.noStroke();
-          
-          if (shapeType === 0) {
-            // Circles with cutouts
-            p5.ellipse(0, 0, size, size);
-            p5.fill(bgR, bgG, bgB);
-            p5.ellipse(0, 0, size * 0.6, size * 0.6);
-          } 
-          else if (shapeType === 1) {
-            // Random polygon
-            p5.beginShape();
-            const vertices = Math.floor(3 + p5.noise(i, this.time * 0.1) * 5);
-            for (let v = 0; v < vertices; v++) {
-              const angle = p5.map(v, 0, vertices, 0, p5.TWO_PI);
-              const rad = size * 0.5 * (0.5 + p5.noise(i, v, this.time * 0.05) * 0.5);
-              const vx = p5.cos(angle) * rad;
-              const vy = p5.sin(angle) * rad;
-              p5.vertex(vx, vy);
-            }
-            p5.endShape(p5.CLOSE);
-          }
-          else if (shapeType === 2) {
-            // Curved lines
-            p5.noFill();
-            p5.stroke(fr, fg, fb, alpha);
-            p5.strokeWeight(3 + p5.noise(i, this.time) * 8);
-            
-            p5.beginShape();
-            for (let v = 0; v < 10; v++) {
-              const angle = p5.map(v, 0, 10, 0, p5.TWO_PI);
-              const rad = size * 0.5 * p5.noise(i, v * 0.2, this.time * 0.1);
-              const vx = p5.cos(angle) * rad;
-              const vy = p5.sin(angle) * rad;
-              p5.curveVertex(vx, vy);
-            }
-            p5.endShape();
-          }
-          else {
-            // Abstract blobs
-            p5.beginShape();
-            const steps = 15;
-            for (let v = 0; v <= steps; v++) {
-              const angle = p5.map(v, 0, steps, 0, p5.TWO_PI);
-              // Use perlin noise to create blob-like shapes
-              const radius = size * 0.5 * p5.map(p5.noise(i * 0.5, this.time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
-              const vx = p5.cos(angle) * radius;
-              const vy = p5.sin(angle) * radius;
-              p5.curveVertex(vx, vy);
-            }
-            p5.endShape(p5.CLOSE);
-          }
-          
-          p5.pop();
-        }
-        
-        // Add some connecting lines between shapes for composition
-        p5.stroke(255, 255, 255, 30);
-        p5.strokeWeight(1);
-        const lineCount = 10;
-        
-        for (let i = 0; i < lineCount; i++) {
-          const x1 = p5.noise(i * 0.5, this.time * 0.1) * p5.width;
-          const y1 = p5.noise(i * 0.5 + 100, this.time * 0.1) * p5.height;
-          const x2 = p5.noise(i * 0.5 + 200, this.time * 0.1) * p5.width;
-          const y2 = p5.noise(i * 0.5 + 300, this.time * 0.1) * p5.height;
-          
-          p5.line(x1, y1, x2, y2);
-        }
-      }
-    }
-    
-    // Circle Grid Class
-    class CircleGridAbstract {
-      private cols: number;
-      private rows: number;
-      private time: number;
-      private cellSize: number;
-      
-      constructor(private p5: any, private bgColor: any, private fgColors: any[]) {
-        this.cols = 12;
-        this.rows = 12;
-        this.time = 0;
-        this.cellSize = p5.min(p5.width, p5.height) / this.cols;
-      }
-      
-      update(speed: number) {
-        this.time += speed * 0.005;
-      }
-      
-      draw() {
-        const { p5 } = this;
-        const bgR = p5.red(this.bgColor);
-        const bgG = p5.green(this.bgColor);
-        const bgB = p5.blue(this.bgColor);
-        
-        p5.noStroke();
-        
-        // Draw circles in a grid pattern
-        for (let i = 0; i < this.cols; i++) {
-          for (let j = 0; j < this.rows; j++) {
-            const x = (i + 0.5) * this.cellSize;
-            const y = (j + 0.5) * this.cellSize;
-            
-            // Create a sinusoidal wave pattern based on position and time
-            const distFromCenter = p5.dist(x, y, p5.width/2, p5.height/2);
-            const sizeOffset = p5.sin((distFromCenter * 0.01) + this.time) * 0.5 + 0.5;
-            
-            // Each position gets a unique color cycling through the palette
-            const colorIndex = (i + j * this.cols) % this.fgColors.length;
-            const fgColor = this.fgColors[colorIndex];
-            
-            // Extract RGB values
-            const fr = p5.red(fgColor);
-            const fg = p5.green(fgColor);
-            const fb = p5.blue(fgColor);
-            
-            // Calculate radius with animation
-            const baseRadius = this.cellSize * 0.4;
-            const radius = baseRadius * (0.2 + sizeOffset * 0.8);
-            
-            // Draw outer circle
-            p5.fill(fr, fg, fb, 200);
-            p5.ellipse(x, y, radius * 2, radius * 2);
-            
-            // Draw inner circle (creates a ring effect)
-            p5.fill(bgR, bgG, bgB);
-            p5.ellipse(x, y, radius * 2 * 0.7, radius * 2 * 0.7);
-            
-            // Add small dots
-            p5.fill(fr, fg, fb);
-            const dotCount = 4;
-            for (let k = 0; k < dotCount; k++) {
-              const angle = (k / dotCount) * p5.TWO_PI + this.time * 2;
-              const dotRadius = radius * 0.85;
-              const dotX = x + p5.cos(angle) * dotRadius;
-              const dotY = y + p5.sin(angle) * dotRadius;
-              p5.ellipse(dotX, dotY, this.cellSize * 0.1, this.cellSize * 0.1);
-            }
-          }
-        }
-      }
-    }
-    
-    // Flow Image Implementation
+    // FlowImage Implementation
     class FlowImageParticle {
       x: number;
       y: number;
@@ -725,6 +418,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       angle: number = 0;
       strokeWeight: number;
       
+      // Cache end points and colors for better performance
+      endX: number = 0;
+      endY: number = 0;
+      color: string = '';
+      highlightColor: string = '';
+      
       constructor(x: number, y: number, r: number, g: number, b: number, a: number, strokeLength: number, strokeWeight: number) {
         this.x = x;
         this.y = y;
@@ -734,24 +433,37 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         this.a = a;
         this.strokeLength = strokeLength;
         this.strokeWeight = strokeWeight;
+        
+        // Pre-calculate colors for faster drawing
+        this.color = `rgba(${r},${g},${b},${a})`;
+        const hr = Math.min(r * 1.5, 255);
+        const hg = Math.min(g * 1.5, 255);
+        const hb = Math.min(b * 1.5, 255);
+        this.highlightColor = `rgba(${hr},${hg},${hb},100)`;
       }
       
       update(noiseScale: number) {
+        // Get the angle from the noise value at this position
         this.angle = p.noise(this.x * noiseScale, this.y * noiseScale) * p.TWO_PI;
+        
+        // Pre-calculate endpoint for faster drawing
+        const lineLength = this.strokeLength;
+        this.endX = this.x + Math.cos(this.angle) * lineLength;
+        this.endY = this.y + Math.sin(this.angle) * lineLength;
       }
       
       display() {
-        p.push();
-        p.translate(this.x, this.y);
-        p.rotate(this.angle);
-        const lengthVariation = p.random(0.75, 1.25);
+        // Draw main line - use pre-calculated values
         p.stroke(this.r, this.g, this.b, this.a);
         p.strokeWeight(this.strokeWeight);
-        p.line(0, 0, this.strokeLength * lengthVariation, 0);
-        p.stroke(Math.min(this.r * 3, 255), Math.min(this.g * 3, 255), Math.min(this.b * 3, 255), p.random(100));
-        p.strokeWeight(this.strokeWeight * 0.8);
-        p.line(0, -this.strokeWeight * 0.15, this.strokeLength * lengthVariation, -this.strokeWeight * 0.15);
-        p.pop();
+        p.line(this.x, this.y, this.endX, this.endY);
+        
+        // Only draw highlight if particle is large enough
+        if (this.strokeWeight > 1.5) {
+          p.stroke(Math.min(this.r * 3, 255), Math.min(this.g * 3, 255), Math.min(this.b * 3, 255), 100);
+          p.strokeWeight(this.strokeWeight * 0.7);
+          p.line(this.x, this.y, this.endX, this.endY);
+        }
       }
     }
     
@@ -786,8 +498,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       const canvasMode = isImageBasedAlgorithm.current ? 'image' : 'standard';
       console.log(`Setting up canvas in ${canvasMode} mode for algorithm: ${algorithm}`);
       
-      // Create canvas with standard size initially
-      // For image-based algorithms, we'll resize when the image is loaded
+      // Create canvas with standard size initially using P2D for better performance
       const canvas = p.createCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE, p.P2D);
       
       // Position the canvas within its container
@@ -985,85 +696,227 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       } else if (algorithm === 'flowPlotter') {
         particles = []; // Clear any previous image data
         
-        p.loadImage(params.imageUrl || '/images/wall.jpg', (img: any) => {
-          console.log(`Loaded image for flowPlotter: ${img.width}x${img.height}`);
+        p.loadImage(params.imageUrl || '/images/wall.jpg', (loadedImg: any) => {
+          console.log(`Loaded image for flowPlotter: ${loadedImg.width}x${loadedImg.height}`);
           
           // Store image dimensions for future reference
-          imageCanvasDimensions.current = { width: img.width, height: img.height };
+          imageCanvasDimensions.current = { width: loadedImg.width, height: loadedImg.height };
           
           // Resize the canvas to match image dimensions
-          p.resizeCanvas(img.width, img.height);
+          p.resizeCanvas(loadedImg.width, loadedImg.height);
           
           // Update styles to display the image correctly
           updateCanvasStyles();
           
-          // No need to crop or resize - use the full image as is
-          img.loadPixels();
-          
-          // Create a blurred version of the image for base layer
-          p.push();
-          // Apply a faded base of the image to reduce white spaces
-          p.tint(255, 40); // Low opacity base
-          p.image(img, 0, 0, img.width, img.height);
-          p.pop();
-          
-          // Store the original image
-          particles[0] = {
-            img: img,
-            originalWidth: img.width,
-            originalHeight: img.height,
-            pixelBuffer: [] // Store pre-computed pixel colors for faster access
-          };
-          
-          // Pre-compute and store pixel colors for performance
-          const pixelData = [];
-          for (let y = 0; y < img.height; y++) {
-            for (let x = 0; x < img.width; x++) {
-              const index = (y * img.width + x) * 4;
-              pixelData.push({
-                x, y,
-                r: img.pixels[index],
-                g: img.pixels[index + 1],
-                b: img.pixels[index + 2],
-                a: img.pixels[index + 3]
-              });
+          // Ensure pixels of the original image are loaded if not done by p5 by default
+          loadedImg.loadPixels(); 
+
+          let imageToProcess = loadedImg;
+          let isOptimized = false;
+          const totalPixels = loadedImg.width * loadedImg.height;
+
+          // Optimization: if image is very large, create a smaller version for pixel processing.
+          // Using a threshold like 4 Megapixels (e.g., 2000x2000).
+          // The optimization will run by default if the image is large enough.
+          if (totalPixels > 4000000) {
+            console.log("Optimizing large image for flowPlotter processing");
+            const scaleFactor = Math.sqrt(4000000 / totalPixels);
+            const newWidth = Math.floor(loadedImg.width * scaleFactor);
+            const newHeight = Math.floor(loadedImg.height * scaleFactor);
+            
+            const smallImg = p.createImage(newWidth, newHeight);
+            // Ensure the smallImg has pixel data array
+            smallImg.loadPixels(); 
+            smallImg.copy(loadedImg, 0, 0, loadedImg.width, loadedImg.height, 0, 0, newWidth, newHeight);
+            // Pixels might need to be explicitly loaded again after copy on some p5 versions or contexts
+            smallImg.loadPixels(); 
+            imageToProcess = smallImg;
+            isOptimized = true;
+            console.log(`Image optimized to ${newWidth}x${newHeight}`);
+          } else {
+            // If not optimizing, ensure the imageToProcess (original) has its pixels loaded.
+             if (!imageToProcess.pixels || imageToProcess.pixels.length === 0) {
+                imageToProcess.loadPixels();
             }
           }
-          particles[0].pixelBuffer = pixelData;
+          
+          particles[0] = {
+            img: loadedImg, // Original full-res image (e.g. for display overlays)
+            processImg: imageToProcess, // Image to sample pixels from (original or scaled)
+            originalWidth: loadedImg.width,
+            originalHeight: loadedImg.height,
+            isOptimized: isOptimized,
+          };
+          
+          // Set a random noise seed for variation like in flow.js
+          p.noiseSeed(p.random(100000));
+
+          // Draw base image with medium opacity (can be adjusted or made optional)
+          // flow.js starts with a plain white background. Let's match that.
+          p.background(255); // Match flow.js initial background
           
           // Reset animation timer for flowPlotter
           time = 0;
+          
+          // High frame rate for smooth animation
+          p.frameRate(30); // flow.js doesn't specify, 30 is a good default
+          p.loop(); // Ensure loop is running
         }, (err: any) => {
           console.error("FlowPlotter: Error loading image:", err);
+          const colors = getColors(); // Get fallback colors
+          const [bgR, bgG, bgB] = getRGB(colors.background);
           p.background(bgR, bgG, bgB); // Fallback to theme background
         });
       } else if (algorithm === 'abstract') {
-        console.log("Initializing abstract particles...");
+        // Abstract algorithm implementation
+        p.background(bgR, bgG, bgB);
         
-        // Reference to instances for variant-specific drawing
-        let abstractParticles = null;
-        let circleGridInstance = null;
-        let dashedLinesInstance = null;
+        // Use multiple foreground colors if available
+        const fgColors = colors.foregroundColors || [colors.foreground];
         
-        // Choose a random variant for abstract algorithm
-        const variant = Math.floor(p.random(3)); // Now 3 variants (0, 1, 2)
-        console.log(`Selected abstract variant: ${variant}`);
+        // Update time for animation
+        time += normalizedParams.speed * 0.01;
         
-        if (variant === 0) {
-          // Create abstract generative art
-          const fgColors = colors.foregroundColors || [colors.foreground];
-          abstractParticles = new AbstractGenerative(p, colors.background, fgColors);
-        } else if (variant === 1) {
-          // Create circle grid abstract
-          const fgColors = colors.foregroundColors || [colors.foreground];
-          circleGridInstance = new CircleGridAbstract(p, colors.background, fgColors);
-        } else if (variant === 2) {
-          // Create dashed lines abstract variant
-          dashedLinesInstance = new DashedLinesAbstract(p);
+        // Create abstract shapes based on complexity
+        const numShapes = Math.floor(10 + normalizedParams.complexity / 2);
+        const maxSize = Math.floor(p.width / 4);
+        
+        // Use perlin noise for organic movement
+        for (let i = 0; i < numShapes; i++) {
+          const colorIndex = i % fgColors.length;
+          const [fr, fg, fb] = getRGB(fgColors[colorIndex]);
+          
+          // Vary opacity based on position
+          const alpha = p.map(i, 0, numShapes, 100, 255);
+          
+          // Get noise-based positions
+          const noiseScale = normalizedParams.noiseScale * 0.001;
+          const noiseTime = time * 0.2;
+          
+          const nx = p.noise(i * 0.3, noiseTime) * p.width;
+          const ny = p.noise(i * 0.3 + 100, noiseTime) * p.height;
+          
+          // Choose shape type based on noise
+          const shapeType = Math.floor(p.noise(i * 0.5, time * 0.1) * 4);
+          
+          p.push();
+          p.translate(nx, ny);
+          p.rotate(time * (i % 5) * 0.02);
+          
+          // Size varies with noise
+          const size = p.noise(i * 0.2, time * 0.05) * maxSize;
+          
+          // Draw different abstract shapes
+          p.fill(fr, fg, fb, alpha);
+          p.noStroke();
+          
+          if (shapeType === 0) {
+            // Circles with cutouts
+            p.ellipse(0, 0, size, size);
+            p.fill(bgR, bgG, bgB);
+            p.ellipse(0, 0, size * 0.6, size * 0.6);
+          } 
+          else if (shapeType === 1) {
+            // Random polygon
+            p.beginShape();
+            const vertices = Math.floor(3 + p.noise(i, time * 0.1) * 5);
+            for (let v = 0; v < vertices; v++) {
+              const angle = p.map(v, 0, vertices, 0, p.TWO_PI);
+              const rad = size * 0.5 * (0.5 + p.noise(i, v, time * 0.05) * 0.5);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.vertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          else if (shapeType === 2) {
+            // Curved lines
+            p.noFill();
+            p.stroke(fr, fg, fb, alpha);
+            p.strokeWeight(3 + p.noise(i, time) * 8);
+            
+            p.beginShape();
+            for (let v = 0; v < 10; v++) {
+              const angle = p.map(v, 0, 10, 0, p.TWO_PI);
+              const rad = size * 0.5 * p.noise(i, v * 0.2, time * 0.1);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape();
+          }
+          else {
+            // Abstract blobs
+            p.beginShape();
+            const steps = 15;
+            for (let v = 0; v <= steps; v++) {
+              const angle = p.map(v, 0, steps, 0, p.TWO_PI);
+              // Use perlin noise to create blob-like shapes
+              const radius = size * 0.5 * p.map(p.noise(i * 0.5, time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
+              const vx = p.cos(angle) * radius;
+              const vy = p.sin(angle) * radius;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
+          }
+          
+          p.pop();
         }
         
-        // Store reference for the draw loop
-        particles = [abstractParticles, circleGridInstance, dashedLinesInstance, variant];
+        // Add some connecting lines between shapes for composition
+        if (normalizedParams.complexity > 50) {
+          p.stroke(255, 255, 255, 30);
+          p.strokeWeight(1);
+          const lineCount = Math.floor(normalizedParams.complexity / 10);
+          
+          for (let i = 0; i < lineCount; i++) {
+            const x1 = p.noise(i * 0.5, time * 0.1) * p.width;
+            const y1 = p.noise(i * 0.5 + 100, time * 0.1) * p.height;
+            const x2 = p.noise(i * 0.5 + 200, time * 0.1) * p.width;
+            const y2 = p.noise(i * 0.5 + 300, time * 0.1) * p.height;
+            
+            p.line(x1, y1, x2, y2);
+          }
+        }
+        
+        drawBorder(colors.foreground);
+      } else if (algorithm === 'gradients') {
+        // Placeholder for Gradients algorithm
+        p.background(bgR, bgG, bgB);
+         
+        // Create a gradient using foreground colors
+        const gradientColors = colors.foregroundColors || [colors.foreground];
+        p.noStroke();
+         
+        // Draw gradient bands
+        const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
+        const bandHeight = p.height / numBands;
+         
+        for (let i = 0; i < numBands; i++) {
+          const colorIndex = i % gradientColors.length;
+          const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
+          p.fill(cr, cg, cb, 200);
+          p.rect(0, i * bandHeight, p.width, bandHeight);
+        }
+         
+        // Add some animated waves for visual interest
+        time += normalizedParams.speed * 0.01;
+        p.stroke(255, 255, 255, 40);
+        p.strokeWeight(2);
+        p.noFill();
+         
+        for (let i = 0; i < 5; i++) {
+          p.beginShape();
+          for (let x = 0; x < p.width; x += 20) {
+            const y = p.height / 2 + 
+                     Math.sin(x * 0.01 + time + i) * (50 + i * 20) + 
+                     Math.cos(x * 0.02 + time * 0.7) * (30 + i * 15);
+            p.vertex(x, y);
+          }
+          p.endShape();
+        }
+         
+        drawBorder(colors.foreground);
       } else {
         // For all other algorithms, reset to master canvas size
         imageCanvasDimensions.current = null;
@@ -1080,7 +933,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       const colors = getColors();
       const [bgR, bgG, bgB] = getRGB(colors.background);
       const currentIsSaving = isSavingRef.current;
-
+      
       if (algorithm === 'perlinNoise') {
         // Only set background once at the beginning, like in reference
         if (time === 0) {
@@ -1167,228 +1020,230 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
         // Draw border around the canvas - now disabled in this function
         drawBorder(colors.foreground);
       } else if (algorithm === 'flowPlotter' && particles.length > 0 && particles[0] && particles[0].img) {
-        // For flowPlotter we use the actual image dimensions
         const imgData = particles[0];
+        if (!imgData || !imgData.processImg || !imgData.processImg.pixels || imgData.processImg.pixels.length === 0) {
+          // Image or pixel data not ready, skip drawing this frame
+          return;
+        }
+
+        const processImg = imgData.processImg; // Image to sample pixels from (original or optimized)
+        const originalWidth = imgData.originalWidth;
+        const originalHeight = imgData.originalHeight;
         
-        // Get the image dimensions for reference
-        const imgWidth = imgData.img.width;
-        const imgHeight = imgData.img.height;
+        const drawLength = 250; // Animation duration, flow.js: 580. Shorter for faster ultra-dense buildup.
+        const noiseScaleValue = (params.noiseScale / 100 * 0.002) + 0.0001; // Range: 0.0001 to 0.0021. flow.js uses 0.0001.
+        const baseStrokeLength = 15; // From flow.js
+
+        // time is managed by the main sketch loop, incremented by `time += 3` before this block in the original code.
+        // Ensure time increment is suitable. Let's make it part of this logic for clarity.
+        // If `time` is not reset to 0 on init, this needs adjustment.
+        // Assuming `time` is effectively frame count for this algorithm here.
+
+        if (time > drawLength && !currentIsSaving) {
+          if (p.isLooping()) {
+            p.noLoop();
+          }
+          return; 
+        }
+
+        // Particle count mapping for ultra-density - INCREASED EVEN MORE
+        const densityParamValue = typeof params.density === 'number' ? params.density : 50; // Default to 50 if undefined
+        const densityFactor = densityParamValue === 0 ? 0.1 : densityParamValue / 100; // Min factor 0.1 for 0 density, else scale 0-100 to 0-1
+        const baseUltraDensity = 2500 * densityFactor; // Max particles, e.g., 2500 for 100% density
         
-        // Calculate image resolution and megapixels
-        const imgResolution = imgWidth * imgHeight;
-        const megapixels = imgResolution / 1000000; // Convert to MP
-        
-        // MUCH more aggressive parameters for maximum density
-        const noiseScale = 0.001 / 10; // Keep original noise scale
-        const strokeLength = 15; // Original stroke length
-        const drawLength = 400; // Shorter animation to reach max density faster
-        
-        // Increment time at a faster rate for higher resolution images
-        const timeMultiplier = Math.min(3, Math.max(1, megapixels / 2)); // Scale time speed with resolution
-        time += 1.5 * timeMultiplier; // 1.5x speed, further boosted by resolution
-        
-        if (time > drawLength && !currentIsSaving) { 
-          // Effect finished, but continue for saving if needed
-        } else if (time <= drawLength) {
-          // Translate to center image just like the reference implementation
+        // Start with 60% of max density, ramp up to 100% for very quick coverage
+        const count = Math.floor(p.map(time, 0, drawLength, baseUltraDensity * 0.6, baseUltraDensity));
+
+        // Stroke weight mapping like flow.js
+        const sw = p.map(time, 0, drawLength, 25, 2); 
+
+        for (let i = 0; i < count; i++) {
+          // Pick a random point on the processing image
+          const px = p.floor(p.random(processImg.width)); 
+          const py = p.floor(p.random(processImg.height));
+
+          const pIndex = (py * processImg.width + px) * 4;
+          if (pIndex + 3 >= processImg.pixels.length) continue; // Boundary check
+
+          const r = processImg.pixels[pIndex];
+          const g = processImg.pixels[pIndex + 1];
+          const b = processImg.pixels[pIndex + 2];
+          const a = processImg.pixels[pIndex + 3];
+
+          // Scale coordinates for display if an optimized (smaller) image was processed
+          const displayX = imgData.isOptimized ? (px / processImg.width) * originalWidth : px;
+          const displayY = imgData.isOptimized ? (py / processImg.height) * originalHeight : py;
+          
+          p.stroke(r, g, b, a);
+          p.strokeWeight(sw);
+
           p.push();
-          
-          // Center the image in the viewport
-          p.translate(
-            p.width / 2 - imgWidth / 2,
-            p.height / 2 - imgHeight / 2
-          );
-          
-          // ULTRA-AGGRESSIVE scaling for 8K images
-          // Base resolution reference (1MP = 1 million pixels)
-          const baseResolution = 1000000;
-          
-          // Remove density multiplier cap for ultra-high resolutions
-          // Original was: const densityMultiplier = Math.min(4, Math.max(1, Math.sqrt(imgResolution / baseResolution)));
-          // For 8K (33MP), this would give: sqrt(33) ≈ 5.7, but was capped at 4
-          
-          // New calculation - use logarithmic scaling for extreme resolutions to prevent overwhelming the browser
-          // For 1MP: log(1+1)/log(2) = 1
-          // For 8MP (4K): log(8+1)/log(2) = 3.17
-          // For 33MP (8K): log(33+1)/log(2) = 5.09
-          const densityMultiplier = Math.max(1, Math.log(megapixels + 1) / Math.log(2)) * 1.5;
-          
-          console.log(`Image: ${imgWidth}x${imgHeight} (${megapixels.toFixed(1)}MP), Density multiplier: ${densityMultiplier.toFixed(2)}`);
-          
-          // Higher density initially to cover white spaces faster
-          const timeProgress = time / drawLength;
-          const timeBasedDensity = timeProgress < 0.3 ? 
-            p.map(timeProgress, 0, 0.3, 3.5, 1.5) : 
-            p.map(timeProgress, 0.3, 1, 1.5, 1);
-            
-          // Combine all multipliers for final density
-          const combinedMultiplier = densityMultiplier * timeBasedDensity;
-          
-          // DRAMATICALLY increase base count range
-          // Original was 2-80 strokes per frame
-          // Previous increase was 20-400
-          // Now scale even higher for 8K support
-          const baseCount = p.map(time, 0, drawLength, 50, 800); 
-          const count = Math.floor(baseCount * combinedMultiplier * (params.density ? params.density / 100 : 1));
-          
-          // Resolution-aware stroke thickness
-          // Thinner strokes for higher resolutions to avoid overwhelming the image
-          const baseStrokeThickness = params.strokeThickness || 50;
-          const thicknessScale = Math.max(0.5, 1 / Math.sqrt(megapixels / 2));
-          const startThickness = baseStrokeThickness * thicknessScale;
-          const strokeWeight = p.map(time, 0, drawLength, startThickness, 0.5);
-          
-          // Add multiple stroke layers with different properties for better coverage
-          // Layer 1: Main strokes following reference approach but ultra-dense
-          for (let i = 0; i < count; i++) {
-            // Pick a random point on the image
-            const x = Math.floor(p.random(imgWidth));
-            const y = Math.floor(p.random(imgHeight));
-            
-            // Convert coordinates to its index
-            const index = (y * imgWidth + x) * 4;
-            
-            // Get the pixel's color values
-            const r = imgData.img.pixels[index];
-            const g = imgData.img.pixels[index + 1];
-            const b = imgData.img.pixels[index + 2];
-            const a = imgData.img.pixels[index + 3];
-            
-            // Set stroke color
-            p.stroke(r, g, b, a);
-            p.strokeWeight(strokeWeight);
-            
+          p.translate(displayX, displayY);
+
+          const n = p.noise(px * noiseScaleValue, py * noiseScaleValue);
+          p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
+
+          // Randomized stroke length, current baseStrokeLength is the minimum
+          const lengthVariation = p.random(1, 1.8); // Strokes will be 1x to 1.8x the base length
+          const currentLineLength = baseStrokeLength * lengthVariation;
+          p.line(0, 0, currentLineLength, 0);
+
+          // Draw highlight
+          p.stroke(Math.min(r * 3, 255), Math.min(g * 3, 255), Math.min(b * 3, 255), p.random(50, 150)); // Adjusted alpha for visibility
+          p.strokeWeight(sw * 0.8);
+          p.line(0, -sw * 0.1, currentLineLength, -sw * 0.1); // Slightly smaller offset for highlight based on thinner strokes
+          p.pop();
+        }
+        
+        // Increment time/frame counter for this algorithm's progression
+        // This was `time += 3` in the previous version. Let's stick to a clear increment.
+        time += 1.5; // Moderate speed for progression
+
+        // Optional: subtle image overlay from previous implementation (flow.js doesn't have this)
+        if (time < drawLength * 0.6 && time % 7 < 1.5) { // Check against time increment
             p.push();
-            p.translate(x, y);
-            
-            // Rotate according to the noise field
-            const n = p.noise(x * noiseScale, y * noiseScale);
-            p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
-            
-            const lengthVariation = p.random(0.75, 1.25);
-            p.line(0, 0, strokeLength * lengthVariation, 0);
-            
-            // Draw a highlight for more detail
-            p.stroke(Math.min(r * 3, 255), Math.min(g * 3, 255), Math.min(b * 3, 255), p.random(100));
-            p.strokeWeight(strokeWeight * 0.8);
-            p.line(0, -strokeWeight * 0.15, strokeLength * lengthVariation, -strokeWeight * 0.15);
-            
+            p.tint(255, 10); 
+            p.image(imgData.img, 0, 0, originalWidth, originalHeight);
             p.pop();
-          }
+        }
+      } else if (algorithm === 'abstract') {
+        // Abstract algorithm implementation
+        p.background(bgR, bgG, bgB);
+        
+        // Use multiple foreground colors if available
+        const fgColors = colors.foregroundColors || [colors.foreground];
+        
+        // Update time for animation
+        time += normalizedParams.speed * 0.01;
+        
+        // Create abstract shapes based on complexity
+        const numShapes = Math.floor(10 + normalizedParams.complexity / 2);
+        const maxSize = Math.floor(p.width / 4);
+        
+        // Use perlin noise for organic movement
+        for (let i = 0; i < numShapes; i++) {
+          const colorIndex = i % fgColors.length;
+          const [fr, fg, fb] = getRGB(fgColors[colorIndex]);
           
-          // Layer 2: Add background filling strokes more frequently for higher resolutions
-          // For 8K+ images, run this filler layer more frequently
-          const fillerFrequency = Math.max(1, Math.floor(10 / Math.sqrt(megapixels)));
-          if (time < drawLength * 0.6 && time % fillerFrequency === 0) {
-            // More frequent wide strokes for ultra-high resolution
-            const wideCount = Math.floor(count / 3); // Increase from 1/4 to 1/3 for better coverage
-            
-            // Use a grid-based strategy for complete coverage
-            const gridSize = Math.ceil(Math.sqrt(wideCount));
-            const cellWidth = imgWidth / gridSize;
-            const cellHeight = imgHeight / gridSize; 
-            
-            for (let i = 0; i < wideCount; i++) {
-              const gridX = i % gridSize;
-              const gridY = Math.floor(i / gridSize);
-              
-              // Add slight randomness within each cell
-              const x = Math.min(imgWidth-1, Math.floor(gridX * cellWidth + p.random(cellWidth)));
-              const y = Math.min(imgHeight-1, Math.floor(gridY * cellHeight + p.random(cellHeight)));
-              
-              // Get the pixel's color values
-              const index = (y * imgWidth + x) * 4;
-              const r = imgData.img.pixels[index];
-              const g = imgData.img.pixels[index + 1];
-              const b = imgData.img.pixels[index + 2];
-              const a = imgData.img.pixels[index + 3];
-              
-              // Draw wider strokes at lower opacity to fill gaps
-              p.stroke(r, g, b, Math.max(100, a/2));
-              const wideSw = p.map(time, 0, drawLength, startThickness * 1.5, 15);
-              p.strokeWeight(wideSw);
-              
-              p.push();
-              p.translate(x, y);
-              
-              // Use longer strokes for better coverage
-              const n = p.noise(x * noiseScale * 0.8, y * noiseScale * 0.8);
-              p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
-              
-              // Longer strokes to fill more space
-              const extraLength = strokeLength * 1.8; // Increased from 1.5
-              p.line(0, 0, extraLength, 0);
-              
-              p.pop();
+          // Vary opacity based on position
+          const alpha = p.map(i, 0, numShapes, 100, 255);
+          
+          // Get noise-based positions
+          const noiseScale = normalizedParams.noiseScale * 0.001;
+          const noiseTime = time * 0.2;
+          
+          const nx = p.noise(i * 0.3, noiseTime) * p.width;
+          const ny = p.noise(i * 0.3 + 100, noiseTime) * p.height;
+          
+          // Choose shape type based on noise
+          const shapeType = Math.floor(p.noise(i * 0.5, time * 0.1) * 4);
+          
+          p.push();
+          p.translate(nx, ny);
+          p.rotate(time * (i % 5) * 0.02);
+          
+          // Size varies with noise
+          const size = p.noise(i * 0.2, time * 0.05) * maxSize;
+          
+          // Draw different abstract shapes
+          p.fill(fr, fg, fb, alpha);
+          p.noStroke();
+          
+          if (shapeType === 0) {
+            // Circles with cutouts
+            p.ellipse(0, 0, size, size);
+            p.fill(bgR, bgG, bgB);
+            p.ellipse(0, 0, size * 0.6, size * 0.6);
+          } 
+          else if (shapeType === 1) {
+            // Random polygon
+            p.beginShape();
+            const vertices = Math.floor(3 + p.noise(i, time * 0.1) * 5);
+            for (let v = 0; v < vertices; v++) {
+              const angle = p.map(v, 0, vertices, 0, p.TWO_PI);
+              const rad = size * 0.5 * (0.5 + p.noise(i, v, time * 0.05) * 0.5);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.vertex(vx, vy);
             }
+            p.endShape(p.CLOSE);
           }
-          
-          // Layer 3: For extremely high-resolution images, add a full-image overlay more frequently
-          const overlayFrequency = Math.max(5, Math.floor(40 / Math.sqrt(megapixels)));
-          if (time < drawLength * 0.5 && time % overlayFrequency === 0) {
-            // Every N frames (fewer for higher resolution), add a very transparent overlay
-            p.push();
-            p.tint(255, 8); // Very low opacity - reduced to be more subtle
-            p.image(imgData.img, 0, 0, imgWidth, imgHeight);
-            p.pop();
-          }
-          
-          // Layer 4: For 8K+ images, periodically add a blanket of ultra-tiny strokes
-          if (megapixels > 20 && time < drawLength * 0.7 && time % 15 === 0) {
-            const microCount = Math.floor(count * 0.5);
-            p.push();
-            p.strokeWeight(1); // Ultra-thin strokes
+          else if (shapeType === 2) {
+            // Curved lines
+            p.noFill();
+            p.stroke(fr, fg, fb, alpha);
+            p.strokeWeight(3 + p.noise(i, time) * 8);
             
-            for (let i = 0; i < microCount; i++) {
-              const x = Math.floor(p.random(imgWidth));
-              const y = Math.floor(p.random(imgHeight));
-              
-              const index = (y * imgWidth + x) * 4;
-              const r = imgData.img.pixels[index];
-              const g = imgData.img.pixels[index + 1];
-              const b = imgData.img.pixels[index + 2];
-              
-              // Very low opacity micro-strokes
-              p.stroke(r, g, b, 40);
-              
-              p.push();
-              p.translate(x, y);
-              const angle = p.random(p.TWO_PI);
-              p.rotate(angle);
-              p.line(0, 0, 5, 0); // Very short strokes
-              p.pop();
+            p.beginShape();
+            for (let v = 0; v < 10; v++) {
+              const angle = p.map(v, 0, 10, 0, p.TWO_PI);
+              const rad = size * 0.5 * p.noise(i, v * 0.2, time * 0.1);
+              const vx = p.cos(angle) * rad;
+              const vy = p.sin(angle) * rad;
+              p.curveVertex(vx, vy);
             }
-            
-            p.pop();
+            p.endShape();
+          }
+          else {
+            // Abstract blobs
+            p.beginShape();
+            const steps = 15;
+            for (let v = 0; v <= steps; v++) {
+              const angle = p.map(v, 0, steps, 0, p.TWO_PI);
+              // Use perlin noise to create blob-like shapes
+              const radius = size * 0.5 * p.map(p.noise(i * 0.5, time * 0.1 + v * 0.1), 0, 1, 0.5, 1.2);
+              const vx = p.cos(angle) * radius;
+              const vy = p.sin(angle) * radius;
+              p.curveVertex(vx, vy);
+            }
+            p.endShape(p.CLOSE);
           }
           
           p.pop();
         }
+        
+        // Add some connecting lines between shapes for composition
+        if (normalizedParams.complexity > 50) {
+          p.stroke(255, 255, 255, 30);
+          p.strokeWeight(1);
+          const lineCount = Math.floor(normalizedParams.complexity / 10);
+          
+          for (let i = 0; i < lineCount; i++) {
+            const x1 = p.noise(i * 0.5, time * 0.1) * p.width;
+            const y1 = p.noise(i * 0.5 + 100, time * 0.1) * p.height;
+            const x2 = p.noise(i * 0.5 + 200, time * 0.1) * p.width;
+            const y2 = p.noise(i * 0.5 + 300, time * 0.1) * p.height;
+            
+            p.line(x1, y1, x2, y2);
+          }
+        }
+        
+        drawBorder(colors.foreground);
       } else if (algorithm === 'gradients') {
         // Placeholder for Gradients algorithm
         p.background(bgR, bgG, bgB);
-        
+         
         // Create a gradient using foreground colors
         const gradientColors = colors.foregroundColors || [colors.foreground];
         p.noStroke();
-        
+         
         // Draw gradient bands
         const numBands = Math.max(5, Math.floor(normalizedParams.complexity / 10));
         const bandHeight = p.height / numBands;
-        
+         
         for (let i = 0; i < numBands; i++) {
           const colorIndex = i % gradientColors.length;
           const [cr, cg, cb] = getRGB(gradientColors[colorIndex]);
           p.fill(cr, cg, cb, 200);
           p.rect(0, i * bandHeight, p.width, bandHeight);
         }
-        
+         
         // Add some animated waves for visual interest
         time += normalizedParams.speed * 0.01;
         p.stroke(255, 255, 255, 40);
         p.strokeWeight(2);
         p.noFill();
-        
+         
         for (let i = 0; i < 5; i++) {
           p.beginShape();
           for (let x = 0; x < p.width; x += 20) {
@@ -1399,28 +1254,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           }
           p.endShape();
         }
-        
-        drawBorder(colors.foreground);
-      } else if (algorithm === 'abstract' && particles.length >= 4) {
-        // Clear the background with the current theme's background
-        p.background(bgR, bgG, bgB);
-        
-        // Get the variant from particles array (stored at index 3)
-        const variant = particles[3];
-        
-        if (variant === 0 && particles[0]) {
-          // Draw abstract generative art
-          particles[0].update(normalizedParams.speed);
-          particles[0].draw();
-        } else if (variant === 1 && particles[1]) {
-          // Draw circle grid abstract
-          particles[1].update(normalizedParams.speed);
-          particles[1].draw();
-        } else if (variant === 2 && particles[2]) {
-          // Draw dashed lines abstract
-          particles[2].draw();
-        }
-        
+         
         drawBorder(colors.foreground);
       } else {
         p.background(bgR, bgG, bgB);
@@ -1429,7 +1263,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
       
       // Control animation loop - always animate in continuous mode
       // Use appropriate frame rate
-      p.frameRate(currentIsSaving ? 60 : 24); // Higher framerate during saving for smooth capture
+      p.frameRate(currentIsSaving ? 60 : 30); // Higher framerate during saving for smooth capture
     };
     
     // Draw a border around the canvas - now disabled as per user request
