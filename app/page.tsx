@@ -152,7 +152,7 @@ export default function Home() {
                 disabled={isSaving}
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`neo-brutal group px-4 py-3 text-xs font-mono relative overflow-hidden
+                className={`neo-brutal group px-4 py-3 text-xs font-mono 
                   ${algorithm === 'perlinNoise' 
                     ? 'bg-black text-white dark:bg-white dark:text-black' 
                     : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
@@ -160,14 +160,6 @@ export default function Home() {
               >
                 <Waves size={14} className={`${algorithm === 'perlinNoise' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
                 <span>PERLIN NOISE</span>
-                {algorithm === 'perlinNoise' && (
-                  <motion.div 
-                    className="absolute bottom-0 left-0 h-[2px] bg-white dark:bg-black"
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
               </motion.button>
               
               <motion.button 
@@ -175,7 +167,7 @@ export default function Home() {
                 disabled={isSaving}
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`neo-brutal group px-4 py-3 text-xs font-mono relative overflow-hidden
+                className={`neo-brutal group px-4 py-3 text-xs font-mono 
                   ${algorithm === 'cellular' 
                     ? 'bg-black text-white dark:bg-white dark:text-black' 
                     : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
@@ -183,14 +175,6 @@ export default function Home() {
               >
                 <Hexagon size={14} className={`${algorithm === 'cellular' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
                 <span>CELLULAR</span>
-                {algorithm === 'cellular' && (
-                  <motion.div 
-                    className="absolute bottom-0 left-0 h-[2px] bg-white dark:bg-black"
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
               </motion.button>
               
               <motion.button 
@@ -198,7 +182,7 @@ export default function Home() {
                 disabled={isSaving}
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`neo-brutal group px-4 py-3 text-xs font-mono relative overflow-hidden
+                className={`neo-brutal group px-4 py-3 text-xs font-mono 
                   ${algorithm === 'flowPlotter' 
                     ? 'bg-black text-white dark:bg-white dark:text-black' 
                     : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
@@ -206,14 +190,6 @@ export default function Home() {
               >
                 <Image size={14} className={`${algorithm === 'flowPlotter' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
                 <span>FLOW PLOTTER</span>
-                {algorithm === 'flowPlotter' && (
-                  <motion.div 
-                    className="absolute bottom-0 left-0 h-[2px] bg-white dark:bg-black"
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
               </motion.button>
               
               <motion.button 
@@ -221,7 +197,7 @@ export default function Home() {
                 disabled={isSaving}
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
-                className={`neo-brutal group px-4 py-3 text-xs font-mono relative overflow-hidden
+                className={`neo-brutal group px-4 py-3 text-xs font-mono 
                   ${algorithm === 'abstract' 
                     ? 'bg-black text-white dark:bg-white dark:text-black' 
                     : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
@@ -229,14 +205,6 @@ export default function Home() {
               >
                 <CircleDashed size={14} className={`${algorithm === 'abstract' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
                 <span>ABSTRACT</span>
-                {algorithm === 'abstract' && (
-                  <motion.div 
-                    className="absolute bottom-0 left-0 h-[2px] bg-white dark:bg-black"
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 0.3 }}
-                  />
-                )}
               </motion.button>
             </div>
           </motion.div>

@@ -30,8 +30,8 @@ export function Navbar() {
               className="absolute bottom-0 left-0 h-[1px] bg-current"
             />
           </Link>
-          <Link href="#" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
-            <span>Algorithms</span>
+          <Link href="/examples" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
+            <span>Examples</span>
             <motion.span 
               initial={{ width: 0 }}
               whileHover={{ width: '100%' }}
@@ -39,7 +39,7 @@ export function Navbar() {
             />
           </Link>
           <Link href="#" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
-            <span>Examples</span>
+            <span>Docs</span>
             <motion.span 
               initial={{ width: 0 }}
               whileHover={{ width: '100%' }}
@@ -83,12 +83,12 @@ export function Navbar() {
               <span>About</span>
               <span className="text-xs opacity-50">01</span>
             </Link>
-            <Link href="#" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
-              <span>Algorithms</span>
+            <Link href="/examples" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
+              <span>Examples</span>
               <span className="text-xs opacity-50">02</span>
             </Link>
             <Link href="#" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
-              <span>Examples</span>
+              <span>Docs</span>
               <span className="text-xs opacity-50">03</span>
             </Link>
             <Link href="https://github.com" target="_blank" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
