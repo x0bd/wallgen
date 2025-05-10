@@ -54,7 +54,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
 
   // Helper function to check if the current algorithm is image-based
   const checkIfImageBasedAlgorithm = useCallback((algo: string) => {
-    return ['flowPlotter', 'dither', 'ascii'].includes(algo);
+    return ['flowPlotter'].includes(algo);
   }, []);
 
   // Update the image-based algorithm tracking whenever algorithm changes
@@ -730,249 +730,12 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           console.error("FlowPlotter: Error loading image:", err);
           p.background(bgR, bgG, bgB); // Fallback to theme background
         });
-      } else if (algorithm === 'dither') {
-        // For dither algorithm, also use image dimensions if available
-        if (params.imageUrl) {
-          p.loadImage(params.imageUrl, (img: any) => {
-            console.log(`Loaded image for dither: ${img.width}x${img.height}`);
-            
-            // Store image dimensions
-            imageCanvasDimensions.current = { width: img.width, height: img.height };
-            
-            // Resize canvas to match image dimensions
-            p.resizeCanvas(img.width, img.height);
-            
-            // Update styles to display the image correctly
-            updateCanvasStyles();
-            
-            // Store the image for processing
-            particles[0] = { img: img };
-            
-            // Process the image with dithering effect
-            p.background(bgR, bgG, bgB);
-            p.image(img, 0, 0);
-            
-            // Apply dithering effect
-            applyDitheringEffect(img);
-            
-          }, (err: any) => {
-            console.error("Dither: Error loading image:", err);
-            p.background(bgR, bgG, bgB);
-            
-            // Fallback dithering pattern
-            const gridSize = Math.max(5, Math.floor(20 - (normalizedParams.complexity / 10)));
-            const [fr, fg, fb] = getRGB(colors.foreground);
-            p.fill(fr, fg, fb);
-            p.noStroke();
-            
-            for (let x = 0; x < p.width; x += gridSize * 2) {
-              for (let y = 0; y < p.height; y += gridSize * 2) {
-                p.rect(x, y, gridSize, gridSize);
-                p.rect(x + gridSize, y + gridSize, gridSize, gridSize);
-              }
-            }
-          });
-        } else {
-          // No image provided, create a basic pattern
-          p.background(bgR, bgG, bgB);
-          
-          // Get foreground color for drawing
-          const [fr, fg, fb] = getRGB(colors.foreground);
-          p.fill(fr, fg, fb);
-          p.noStroke();
-          
-          // Basic dithering pattern
-          const gridSize = Math.max(5, Math.floor(20 - (normalizedParams.complexity / 10)));
-          for (let x = 0; x < p.width; x += gridSize * 2) {
-            for (let y = 0; y < p.height; y += gridSize * 2) {
-              p.rect(x, y, gridSize, gridSize);
-              p.rect(x + gridSize, y + gridSize, gridSize, gridSize);
-            }
-          }
-        }
-      } else if (algorithm === 'ascii') {
-        // For ASCII art, also use image dimensions when available
-        if (params.imageUrl) {
-          p.loadImage(params.imageUrl, (img: any) => {
-            console.log(`Loaded image for ASCII: ${img.width}x${img.height}`);
-            
-            // Store image dimensions
-            imageCanvasDimensions.current = { width: img.width, height: img.height };
-            
-            // Resize canvas to match image dimensions
-            p.resizeCanvas(img.width, img.height);
-            
-            // Update styles to display the image correctly
-            updateCanvasStyles();
-            
-            // Store the image for processing
-            particles[0] = { img: img };
-            
-            // Process with ASCII effect
-            applyAsciiEffect(img);
-            
-          }, (err: any) => {
-            console.error("ASCII: Error loading image:", err);
-            // Fallback ASCII pattern
-            fallbackAsciiPattern(bgR, bgG, bgB, colors.foreground);
-          });
-        } else {
-          // No image, create a basic ASCII pattern
-          fallbackAsciiPattern(bgR, bgG, bgB, colors.foreground);
-        }
       } else {
         // For all other algorithms, reset to master canvas size
         imageCanvasDimensions.current = null;
         if (p.width !== MASTER_CANVAS_SIZE || p.height !== MASTER_CANVAS_SIZE) {
           p.resizeCanvas(MASTER_CANVAS_SIZE, MASTER_CANVAS_SIZE);
           updateCanvasStyles();
-        }
-      }
-    };
-
-    // Helper functions for image-based algorithms
-    
-    // Dithering effect
-    const applyDitheringEffect = (img: any) => {
-      const normalizedParams = getNormalizedParams();
-      const colors = getColors();
-      const [bgR, bgG, bgB] = getRGB(colors.background);
-      const [fgR, fgG, fgB] = getRGB(colors.foreground);
-      
-      // Create a new, processed image
-      p.background(bgR, bgG, bgB);
-      
-      // Apply dithering based on complexity
-      const thresholdLevel = normalizedParams.complexity * 10; // 0-100
-      
-      img.loadPixels();
-      p.loadPixels();
-      
-      const w = img.width;
-      const h = img.height;
-      
-      // Floyd-Steinberg dithering
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-          const index = (y * w + x) * 4;
-          
-          // Get original pixel color
-          const oldR = img.pixels[index];
-          const oldG = img.pixels[index + 1];
-          const oldB = img.pixels[index + 2];
-          
-          // Calculate grayscale value
-          const grayValue = (oldR + oldG + oldB) / 3;
-          
-          // Determine if pixel should be foreground or background
-          const newValue = grayValue < thresholdLevel ? 0 : 255;
-          
-          // Calculate error
-          const error = grayValue - newValue;
-          
-          // Set current pixel
-          const destIndex = (y * p.width + x) * 4;
-          if (newValue === 0) {
-            p.pixels[destIndex] = fgR;
-            p.pixels[destIndex + 1] = fgG;
-            p.pixels[destIndex + 2] = fgB;
-          } else {
-            p.pixels[destIndex] = bgR;
-            p.pixels[destIndex + 1] = bgG;
-            p.pixels[destIndex + 2] = bgB;
-          }
-          p.pixels[destIndex + 3] = 255;
-          
-          // Distribute error to neighboring pixels (Floyd-Steinberg)
-          if (x + 1 < w) {
-            img.pixels[index + 4] += error * 7 / 16;
-          }
-          if (x - 1 >= 0 && y + 1 < h) {
-            img.pixels[(y + 1) * w * 4 + (x - 1) * 4] += error * 3 / 16;
-          }
-          if (y + 1 < h) {
-            img.pixels[(y + 1) * w * 4 + x * 4] += error * 5 / 16;
-          }
-          if (x + 1 < w && y + 1 < h) {
-            img.pixels[(y + 1) * w * 4 + (x + 1) * 4] += error * 1 / 16;
-          }
-        }
-      }
-      
-      p.updatePixels();
-    };
-    
-    // ASCII art effect
-    const applyAsciiEffect = (img: any) => {
-      const normalizedParams = getNormalizedParams();
-      const colors = getColors();
-      const [bgR, bgG, bgB] = getRGB(colors.background);
-      const [fgR, fgG, fgB] = getRGB(colors.foreground);
-      
-      // Clear canvas
-      p.background(bgR, bgG, bgB);
-      
-      // ASCII density characters from sparse to dense
-      const asciiChars = " .:-=+*#%@";
-      
-      // Calculate cell size based on complexity
-      // Lower complexity = larger cells (easier to see characters)
-      const cellSize = Math.max(5, Math.floor(25 - normalizedParams.complexity / 5));
-      
-      // Set text properties
-      p.textSize(cellSize);
-      p.textAlign(p.CENTER, p.CENTER);
-      p.fill(fgR, fgG, fgB);
-      p.noStroke();
-      
-      // Process the image
-      img.loadPixels();
-      
-      for (let y = 0; y < img.height; y += cellSize) {
-        for (let x = 0; x < img.width; x += cellSize) {
-          // Sample pixel and get brightness
-          const index = (Math.floor(y) * img.width + Math.floor(x)) * 4;
-          const r = img.pixels[index];
-          const g = img.pixels[index + 1];
-          const b = img.pixels[index + 2];
-          
-          // Calculate brightness (0-255)
-          const brightness = (r + g + b) / 3;
-          
-          // Map to ASCII character
-          const charIndex = Math.floor(p.map(brightness, 0, 255, asciiChars.length - 1, 0));
-          const char = asciiChars.charAt(charIndex);
-          
-          // Draw the character
-          p.text(char, x + cellSize/2, y + cellSize/2);
-        }
-      }
-    };
-    
-    // Fallback ASCII pattern when no image is provided
-    const fallbackAsciiPattern = (bgR: number, bgG: number, bgB: number, foregroundColor: any) => {
-      p.background(bgR, bgG, bgB);
-      
-      // Get foreground color for text
-      const [fr, fg, fb] = getRGB(foregroundColor);
-      p.fill(fr, fg, fb);
-      
-      // ASCII characters from dense to sparse
-      const asciiChars = "@%#*+=-:. ";
-      
-      // Set text properties
-      const textSize = Math.max(10, Math.floor(params.complexity / 5));
-      p.textSize(textSize);
-      p.textAlign(p.CENTER, p.CENTER);
-      
-      // Create ASCII grid
-      const cellSize = textSize * 1.2;
-      for (let y = cellSize; y < p.height; y += cellSize) {
-        for (let x = cellSize; x < p.width; x += cellSize) {
-          // Use noise to select different characters
-          const noiseVal = p.noise(x * 0.01, y * 0.01, time * 0.1);
-          const charToUse = asciiChars.charAt(Math.floor(noiseVal * asciiChars.length));
-          p.text(charToUse, x, y);
         }
       }
     };
@@ -1267,25 +1030,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           
           p.pop();
         }
-      } else if (algorithm === 'dither') {
-        // Placeholder for Dither algorithm
-        p.background(bgR, bgG, bgB);
-        
-        // Get foreground color for drawing
-        const [fr, fg, fb] = getRGB(colors.foreground);
-        p.fill(fr, fg, fb);
-        p.noStroke();
-        
-        // Basic dithering pattern placeholder
-        const gridSize = Math.max(5, Math.floor(20 - (normalizedParams.complexity / 10)));
-        for (let x = 0; x < p.width; x += gridSize * 2) {
-          for (let y = 0; y < p.height; y += gridSize * 2) {
-            p.rect(x, y, gridSize, gridSize);
-            p.rect(x + gridSize, y + gridSize, gridSize, gridSize);
-          }
-        }
-        
-        drawBorder(colors.foreground);
       } else if (algorithm === 'gradients') {
         // Placeholder for Gradients algorithm
         p.background(bgR, bgG, bgB);
@@ -1321,39 +1065,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({ width = 400, height = 300, clas
           }
           p.endShape();
         }
-        
-        drawBorder(colors.foreground);
-      } else if (algorithm === 'ascii') {
-        // Placeholder for ASCII art algorithm
-        p.background(bgR, bgG, bgB);
-        
-        // Get foreground color for text
-        const [fr, fg, fb] = getRGB(colors.foreground);
-        p.fill(fr, fg, fb);
-        
-        // ASCII characters from dense to sparse
-        const asciiChars = "@%#*+=-:. ";
-        const charIndex = Math.floor(time * 5) % asciiChars.length;
-        const char = asciiChars[charIndex];
-        
-        // Set text properties
-        const textSize = Math.max(10, Math.floor(normalizedParams.complexity / 5));
-        p.textSize(textSize);
-        p.textAlign(p.CENTER, p.CENTER);
-        
-        // Create ASCII grid
-        const cellSize = textSize * 1.2;
-        for (let y = cellSize; y < p.height; y += cellSize) {
-          for (let x = cellSize; x < p.width; x += cellSize) {
-            // Use noise to select different characters
-            const noiseVal = p.noise(x * 0.01, y * 0.01, time * 0.1);
-            const charToUse = asciiChars.charAt(Math.floor(noiseVal * asciiChars.length));
-            p.text(charToUse, x, y);
-          }
-        }
-        
-        // Animate time
-        time += normalizedParams.speed * 0.01;
         
         drawBorder(colors.foreground);
       } else if (algorithm === 'abstract') {

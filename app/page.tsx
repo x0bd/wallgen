@@ -4,7 +4,7 @@ import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { SaveProgress } from "@/components/GenerationProgress";
-import { Waves, Hexagon, Wind, Image } from "lucide-react";
+import { Waves, Hexagon, Wind, Image, Palette, CircleDashed } from "lucide-react";
 import { useAlgorithm } from "@/context/algorithm-context";
 
 export default function Home() {
@@ -82,19 +82,6 @@ export default function Home() {
             </button>
             
             <button 
-              onClick={() => setAlgorithm('dither')}
-              disabled={isSaving}
-              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
-                ${algorithm === 'dither' 
-                  ? 'bg-black text-white dark:bg-white dark:text-black' 
-                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
-            >
-              <span>#</span>
-              <span>DITHER</span>
-            </button>
-            
-            <button 
               onClick={() => setAlgorithm('gradients')}
               disabled={isSaving}
               className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
@@ -103,21 +90,8 @@ export default function Home() {
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
-              <span>~</span>
+              <Palette size={14} className={`${algorithm === 'gradients' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>GRADIENTS</span>
-            </button>
-            
-            <button 
-              onClick={() => setAlgorithm('ascii')}
-              disabled={isSaving}
-              className={`neo-brutal group px-4 py-2.5 text-xs font-mono 
-                ${algorithm === 'ascii' 
-                  ? 'bg-black text-white dark:bg-white dark:text-black' 
-                  : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
-                hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
-            >
-              <span>@</span>
-              <span>ASCII</span>
             </button>
             
             <button 
@@ -129,7 +103,7 @@ export default function Home() {
                   : 'hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black'} 
                 hover:translate-y-[-4px] transition-all flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
             >
-              <span>*</span>
+              <CircleDashed size={14} className={`${algorithm === 'abstract' ? 'animate-pulse' : 'group-hover:animate-pulse'}`} />
               <span>ABSTRACT</span>
             </button>
           </div>
