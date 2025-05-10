@@ -38,14 +38,6 @@ export function Navbar() {
               className="absolute bottom-0 left-0 h-[1px] bg-current"
             />
           </Link>
-          <Link href="#" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 group">
-            <span>Docs</span>
-            <motion.span 
-              initial={{ width: 0 }}
-              whileHover={{ width: '100%' }}
-              className="absolute bottom-0 left-0 h-[1px] bg-current"
-            />
-          </Link>
           <Link href="https://github.com" target="_blank" className="text-sm font-mono opacity-70 hover:opacity-100 transition-opacity hover:-translate-y-[2px] flex items-center gap-1 relative">
             <Github size={15} />
             <span>Github</span>
@@ -87,16 +79,12 @@ export function Navbar() {
               <span>Examples</span>
               <span className="text-xs opacity-50">02</span>
             </Link>
-            <Link href="#" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
-              <span>Docs</span>
-              <span className="text-xs opacity-50">03</span>
-            </Link>
             <Link href="https://github.com" target="_blank" className="text-sm font-mono py-2 hover:opacity-70 transition-opacity flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Github size={16} />
                 <span>Github</span>
               </div>
-              <span className="text-xs opacity-50">04</span>
+              <span className="text-xs opacity-50">03</span>
             </Link>
             <div className="flex gap-2 pt-4 mt-2 border-t border-black/10 dark:border-white/10">
               <button className="neo-brutal flex-1 flex items-center justify-center gap-2 text-xs font-mono py-3 px-3 bg-black text-white dark:bg-white dark:text-black">
