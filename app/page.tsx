@@ -8,6 +8,7 @@ import { Waves, Hexagon, Wind, Image, CircleDashed, Palette, ChevronDown, X, Plu
 import { useAlgorithm } from "@/context/algorithm-context";
 import { motion, useScroll, useTransform, AnimatePresence } from "motion/react";
 import { useRef, useState, useEffect } from "react";
+import { MobileDeviceWarning } from "@/components/mobile-device-warning";
 
 export default function Home() {
   const { 
@@ -34,6 +35,9 @@ export default function Home() {
   
   return (
     <div ref={containerRef} className="relative w-full min-h-screen overflow-hidden">
+      {/* Mobile Device Warning */}
+      <MobileDeviceWarning />
+      
       {/* Navbar Component */}
       <Navbar />
 
@@ -59,8 +63,8 @@ export default function Home() {
                   </div>
                   <span className="opacity-30">•</span>
                   <div className="flex items-center gap-1.5">
-                    <Smartphone size={12} className="opacity-60" />
-                    <span className="opacity-80">Mobile ready</span>
+                    <Info size={12} className="opacity-60" />
+                    <span className="opacity-80">Desktop only</span>
                   </div>
                   <button 
                     onClick={() => setMinimized(true)}

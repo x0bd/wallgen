@@ -36,16 +36,9 @@ export function ParametersWidget() {
         <p className="text-xs opacity-70 font-mono bg-black/5 dark:bg-white/5 p-2 rounded">
           {isSaving 
             ? "Saving in progress... Please wait."
-            : "Adjust the parameters to customize your wallpaper. The animation runs continuously and updates in real-time. Click the Save button when you like what you see."
+            : "Adjust the parameters to customize your wallpaper. The animation runs continuously and updates in real-time."
           }
         </p>
-        
-        {/* Visualization */}
-        <div className="rounded-lg overflow-hidden aspect-video bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] flex items-center justify-center border border-black/10 dark:border-white/10">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-black/10 to-black/20 dark:from-white/10 dark:to-white/20 flex items-center justify-center">
-            <Settings size={24} className={`text-black/20 dark:text-white/20 ${isSaving ? 'animate-[spin_1s_linear_infinite]' : 'animate-[spin_4s_linear_infinite]'}`} />
-          </div>
-        </div>
         
         {/* Noise Scale */}
         <div className="space-y-2.5">

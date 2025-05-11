@@ -99,16 +99,6 @@ export function ExportWidget() {
       className="w-full"
     >
       <div className="space-y-5">
-        {/* Preview */}
-        <div className="rounded-lg overflow-hidden bg-gradient-to-br from-black/[0.03] to-black/[0.05] dark:from-white/[0.03] dark:to-white/[0.05] p-3 flex flex-col items-center justify-center border border-black/10 dark:border-white/10">
-          <div className="relative w-32 h-20 bg-black/10 dark:bg-white/10 rounded-md overflow-hidden flex items-center justify-center mb-2">
-            <Image size={16} className={`text-black/30 dark:text-white/30 ${isSaving ? 'animate-pulse' : ''}`} />
-          </div>
-          <p className="text-xs font-mono tracking-tight text-center">
-            <span className="opacity-70">{displayWidth} × {displayHeight}</span> • {fileFormat.toUpperCase()}
-          </p>
-        </div>
-        
         {/* Size Selection - Hidden for Flow Plotter */}
         {!isFlowPlotter && (
           <div className="space-y-2.5">

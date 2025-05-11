@@ -135,44 +135,6 @@ export function ColorWidget() {
       className="w-full"
     >
       <div className="space-y-5">
-        {/* Color Preview */}
-        <div className="h-16 rounded-lg overflow-hidden shadow-sm border border-black/10 dark:border-white/10 bg-neutral-100 dark:bg-neutral-900">
-          <div 
-            className="w-full h-full flex items-center justify-center"
-            style={{ 
-              backgroundColor: params.transparentBackground && algorithm === 'perlinNoise' 
-                ? 'transparent' 
-                : currentColors.background,
-              backgroundImage: params.transparentBackground && algorithm === 'perlinNoise'
-                ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)'
-                : 'none',
-              backgroundSize: '16px 16px',
-              backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px'
-            }}
-          >
-            <div className="flex gap-2">
-              {currentColors.foregroundColors && currentColors.foregroundColors.length > 0 ? (
-                currentColors.foregroundColors.map((color, index) => (
-                  <div 
-                    key={index}
-                    className="w-6 h-6 rounded-full flex items-center justify-center" 
-                    style={{ backgroundColor: color }}
-                  >
-                    {index === 0 && <Paintbrush size={12} style={{ color: currentColors.background }} className={isSaving ? "animate-pulse" : ""} />}
-                  </div>
-                ))
-              ) : (
-                <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center" 
-                  style={{ backgroundColor: currentColors.foreground }}
-                >
-                  <Paintbrush size={14} style={{ color: currentColors.background }} className={isSaving ? "animate-pulse" : ""} />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        
         {/* Color Palette Selection */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
