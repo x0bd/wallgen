@@ -1,10 +1,10 @@
 "use client"
 
 import { Navbar } from "@/components/navbar"
-import { motion, useScroll, useTransform } from "motion/react"
-import { ChevronDown, Download, ExternalLink } from "lucide-react"
+import { motion, useScroll, useTransform, AnimatePresence } from "motion/react"
+import { ChevronDown, Download, ExternalLink, Cpu, Smartphone, Info, X, Minus } from "lucide-react"
 import Link from "next/link"
-import { useRef } from "react"
+import { useRef, useState, useEffect } from "react"
 import Image from "next/image"
 
 // Example wallpaper data structure with placeholder Unsplash images
@@ -97,11 +97,77 @@ export default function ExamplesPage() {
   
   const textOpacity = useTransform(scrollYProgress, [0, 0.1], [1, 0.2]);
   const textY = useTransform(scrollYProgress, [0, 0.1], [0, -50]);
+  const [showNotice, setShowNotice] = useState(true);
+  const [minimized, setMinimized] = useState(false);
+
+  // Auto-minimize after 6 seconds
+  useEffect(() => {
+    if (showNotice && !minimized) {
+      const timer = setTimeout(() => {
+        setMinimized(true);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [showNotice, minimized]);
   
   return (
     <div ref={containerRef} className="relative w-full min-h-screen overflow-hidden">
       {/* Navbar Component */}
       <Navbar />
+
+      {/* Resource Usage Notice */}
+      <AnimatePresence>
+        {showNotice && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-20 right-6 z-40"
+          >
+            <motion.div
+              layout
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="neo-brutal bg-white/80 dark:bg-black/80 backdrop-blur-sm rounded-full overflow-hidden flex items-center shadow-md"
+            >
+              {!minimized ? (
+                <div className="p-1.5 pl-3 text-[10px] font-mono flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Cpu size={12} className="opacity-60" />
+                    <span className="opacity-80">GPU intensive</span>
+                  </div>
+                  <span className="opacity-30">•</span>
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone size={12} className="opacity-60" />
+                    <span className="opacity-80">Mobile ready</span>
+                  </div>
+                  <button 
+                    onClick={() => setMinimized(true)}
+                    className="ml-1 h-5 w-5 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+                    aria-label="Minimize notice"
+                  >
+                    <Minus size={10} />
+                  </button>
+                  <button 
+                    onClick={() => setShowNotice(false)}
+                    className="ml-1 h-5 w-5 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center opacity-60 hover:opacity-100 transition-opacity"
+                    aria-label="Dismiss notice"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setMinimized(false)}
+                  className="p-1.5 flex items-center justify-center opacity-80 hover:opacity-100 transition-opacity"
+                  aria-label="Show system information"
+                >
+                  <Info size={14} />
+                </button>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Elements - Design Accents */}
       <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">

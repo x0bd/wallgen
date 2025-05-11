@@ -3,7 +3,7 @@
 import { Download, MonitorSmartphone, Smartphone, ArrowRight, Code, Image } from "lucide-react"
 import { ToggleWidget } from "@/components/ui/toggle-widget"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAlgorithm } from "@/context/algorithm-context"
 
 type ExportSize = {
@@ -15,7 +15,7 @@ type ExportSize = {
 }
 
 export function ExportWidget() {
-  const { isSaving, exportCanvas } = useAlgorithm();
+  const { isSaving, exportCanvas, algorithm, params } = useAlgorithm();
   
   const sizes: ExportSize[] = [
     { id: "hd", width: 1920, height: 1080, label: "HD (1920×1080)" },
@@ -35,10 +35,26 @@ export function ExportWidget() {
   const [includeSourceCode, setIncludeSourceCode] = useState(false)
   const [addBorder, setAddBorder] = useState(false)
   const [highQuality, setHighQuality] = useState(true)
+  const [originalImageWidth, setOriginalImageWidth] = useState(0)
+  const [originalImageHeight, setOriginalImageHeight] = useState(0)
+  
+  const isFlowPlotter = algorithm === 'flowPlotter';
+  
+  // Get the image dimensions if we're in flow plotter mode
+  useEffect(() => {
+    if (isFlowPlotter && params.imageUrl) {
+      const img = new globalThis.Image();
+      img.onload = () => {
+        setOriginalImageWidth(img.width);
+        setOriginalImageHeight(img.height);
+      };
+      img.src = params.imageUrl as string;
+    }
+  }, [isFlowPlotter, params.imageUrl]);
   
   const selectedSize = sizes.find(s => s.id === selectedSizeId) || sizes[0]
-  const displayWidth = selectedSizeId === "custom" ? customWidth : selectedSize.width
-  const displayHeight = selectedSizeId === "custom" ? customHeight : selectedSize.height
+  const displayWidth = isFlowPlotter ? originalImageWidth || 'Source image' : (selectedSizeId === "custom" ? customWidth : selectedSize.width)
+  const displayHeight = isFlowPlotter ? originalImageHeight || 'dimensions' : (selectedSizeId === "custom" ? customHeight : selectedSize.height)
   
   const handleSizeSelect = (id: string) => {
     setSelectedSizeId(id)
@@ -46,8 +62,14 @@ export function ExportWidget() {
   }
   
   const handleExport = () => {
-    const width = parseInt(selectedSizeId === "custom" ? customWidth : selectedSize.width.toString(), 10);
-    const height = parseInt(selectedSizeId === "custom" ? customHeight : selectedSize.height.toString(), 10);
+    // For Flow Plotter, use the original image dimensions
+    const width = isFlowPlotter 
+      ? originalImageWidth
+      : parseInt(selectedSizeId === "custom" ? customWidth : selectedSize.width.toString(), 10);
+      
+    const height = isFlowPlotter 
+      ? originalImageHeight
+      : parseInt(selectedSizeId === "custom" ? customHeight : selectedSize.height.toString(), 10);
     
     // Validate dimensions
     if (isNaN(width) || isNaN(height) || width <= 0 || height <= 0) {
@@ -87,33 +109,52 @@ export function ExportWidget() {
           </p>
         </div>
         
-        {/* Size Selection */}
-        <div className="space-y-2.5">
-          <label className="text-xs font-mono tracking-tight block">Resolution</label>
-          <div className="grid grid-cols-2 gap-2">
-            {sizes.map((size) => (
-              <button
-                key={size.id}
-                onClick={() => handleSizeSelect(size.id)}
-                disabled={isSaving}
-                className={`flex items-center justify-between py-1.5 px-2 rounded-lg border text-xs font-mono transition-all ${
-                  selectedSizeId === size.id 
-                  ? 'border-black dark:border-white bg-black/[0.03] dark:bg-white/[0.03]' 
-                  : 'border-black/10 dark:border-white/10 opacity-70 hover:opacity-100'
-                } ${isSaving ? 'pointer-events-none opacity-50' : ''}`}
-              >
-                <div className="flex items-center gap-1">
-                  {size.icon}
-                  <span className="text-[10px]">{size.label}</span>
-                </div>
-                {selectedSizeId === size.id && <ArrowRight size={10} />}
-              </button>
-            ))}
+        {/* Size Selection - Hidden for Flow Plotter */}
+        {!isFlowPlotter && (
+          <div className="space-y-2.5">
+            <label className="text-xs font-mono tracking-tight block">Resolution</label>
+            <div className="grid grid-cols-2 gap-2">
+              {sizes.map((size) => (
+                <button
+                  key={size.id}
+                  onClick={() => handleSizeSelect(size.id)}
+                  disabled={isSaving}
+                  className={`flex items-center justify-between py-1.5 px-2 rounded-lg border text-xs font-mono transition-all ${
+                    selectedSizeId === size.id 
+                    ? 'border-black dark:border-white bg-black/[0.03] dark:bg-white/[0.03]' 
+                    : 'border-black/10 dark:border-white/10 opacity-70 hover:opacity-100'
+                  } ${isSaving ? 'pointer-events-none opacity-50' : ''}`}
+                >
+                  <div className="flex items-center gap-1">
+                    {size.icon}
+                    <span className="text-[10px]">{size.label}</span>
+                  </div>
+                  {selectedSizeId === size.id && <ArrowRight size={10} />}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         
-        {/* Custom Size */}
-        {isCustomSize && (
+        {/* Flow Plotter Info Message - Only shown for Flow Plotter */}
+        {isFlowPlotter && (
+          <div className="space-y-2.5">
+            <label className="text-xs font-mono tracking-tight block">Resolution</label>
+            <div className="rounded-lg border border-black/10 dark:border-white/10 p-3 bg-black/[0.02] dark:bg-white/[0.02]">
+              <p className="text-xs font-mono opacity-70 text-center">
+                Flow Plotter exports will match the original image dimensions
+              </p>
+              {originalImageWidth > 0 && originalImageHeight > 0 && (
+                <p className="text-xs font-mono mt-1 text-center font-medium">
+                  {originalImageWidth} × {originalImageHeight}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Custom Size - Only shown when custom is selected and not Flow Plotter */}
+        {isCustomSize && !isFlowPlotter && (
           <div className="space-y-3 pt-3 border-t border-black/5 dark:border-white/5">
             <label className="text-xs font-mono tracking-tight block">Custom Dimensions</label>
             <div className="flex gap-2">
@@ -217,8 +258,8 @@ export function ExportWidget() {
         {/* Download Button */}
         <button 
           onClick={handleExport}
-          disabled={isSaving}
-          className={`w-full neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isSaving ? 'opacity-50 pointer-events-none' : ''}`}
+          disabled={isSaving || (isFlowPlotter && (originalImageWidth === 0 || originalImageHeight === 0))}
+          className={`w-full neo-brutal py-2 text-xs font-mono text-center bg-black text-white dark:bg-white dark:text-black hover:-translate-y-[2px] transition-all flex items-center justify-center gap-1.5 ${isSaving || (isFlowPlotter && (originalImageWidth === 0 || originalImageHeight === 0)) ? 'opacity-50 pointer-events-none' : ''}`}
         >
           <Download size={14} />
           <span>Download Wallpaper</span>
