@@ -1001,7 +1001,14 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				} else if (algorithm === "abstract") {
 					// Mondriomaton (inspired by mondri.js)
 					// Initialize grid size based on density but keep it reasonable
-					currentGridSize = 16; // Fixed size for better performance
+
+					// If we're in the process of saving/exporting, use a higher grid size
+					if (isSavingRef.current) {
+						console.log("Setting high-resolution grid for export");
+						currentGridSize = 32; // Use higher grid size for export
+					} else {
+						currentGridSize = 16; // Standard size for normal display
+					}
 					currentCellSize =
 						Math.max(p.width, p.height) / currentGridSize;
 
@@ -1513,8 +1520,15 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 
 					// Draw grid lines
 					p.stroke(stateColors[4]); // Use black/line color
-					p.strokeWeight(currentLineWidth);
-					p.strokeCap(p.PROJECT); // Match mondri.js PROJECT cap style
+
+					// Use higher quality lines when exporting
+					if (currentIsSaving) {
+						p.strokeWeight(currentLineWidth * 1.5);
+						p.strokeCap(p.SQUARE); // Sharper lines for export
+					} else {
+						p.strokeWeight(currentLineWidth);
+						p.strokeCap(p.PROJECT); // Match mondri.js PROJECT cap style
+					}
 
 					// Draw boundary lines between different states (like in original mondri.js)
 					// First draw vertical lines between cells with different states
@@ -1737,9 +1751,17 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					const centerX = MASTER_CANVAS_SIZE / 2;
 					const centerY = MASTER_CANVAS_SIZE / 2;
 
-					// Calculate crop dimensions to maintain aspect ratio of the target export
-					const cropWidth = Math.min(width, visibleWidth);
-					const cropHeight = Math.min(height, visibleHeight);
+					// For the abstract (Mondriomaton) algorithm, adjust the crop dimensions to ensure high resolution
+					let cropWidth, cropHeight;
+					if (algorithm === "abstract") {
+						// Use the full master canvas for abstract algorithm to ensure highest possible resolution
+						cropWidth = MASTER_CANVAS_SIZE;
+						cropHeight = MASTER_CANVAS_SIZE;
+					} else {
+						// Default behavior for other algorithms
+						cropWidth = Math.min(width, visibleWidth);
+						cropHeight = Math.min(height, visibleHeight);
+					}
 
 					// Calculate the crop position (centered)
 					const cropX = Math.max(0, centerX - cropWidth / 2);
@@ -1759,65 +1781,167 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						`Cropping from high-res canvas at (${cropX}, ${cropY}) with size ${actualWidth}x${actualHeight}`
 					);
 
-					// Capture the cropped region directly from the p5 canvas
-					const croppedImage = sketchInstance.current.get(
-						cropX,
-						cropY,
-						actualWidth,
-						actualHeight
-					);
+					// For the abstract algorithm, regenerate the grid at higher resolution before export
+					if (algorithm === "abstract" && width > 1000) {
+						console.log(
+							"Preparing high-resolution export for abstract algorithm"
+						);
+						// The abstract algorithm needs to be handled differently by accessing its state through the p5 instance
 
-					// Create a temporary canvas for the final export image
-					const tempCanvas = document.createElement("canvas");
-					tempCanvas.width = width;
-					tempCanvas.height = height;
-					const ctx = tempCanvas.getContext("2d");
-
-					if (ctx && croppedImage) {
-						// Set background color in case the crop is smaller than target dimensions
-						const bgColor = getCurrentColors().background;
-						ctx.fillStyle = bgColor;
-						ctx.fillRect(0, 0, width, height);
-
-						// Center the cropped image
-						const offsetX = (width - actualWidth) / 2;
-						const offsetY = (height - actualHeight) / 2;
-
-						// Draw the cropped image to the temporary canvas
-						croppedImage.loadPixels();
-						ctx.drawImage(
-							croppedImage.canvas,
-							0,
-							0,
-							croppedImage.width,
-							croppedImage.height,
-							offsetX,
-							offsetY,
+						// We'll use the existing croppedImage approach since we can't directly modify the sketch variables from this scope
+						const croppedImage = sketchInstance.current.get(
+							cropX,
+							cropY,
 							actualWidth,
 							actualHeight
 						);
 
-						// Apply image smoothing if high quality is requested
-						if (highQuality) {
-							ctx.imageSmoothingEnabled = true;
-							ctx.imageSmoothingQuality = "high";
-						} else {
-							ctx.imageSmoothingEnabled = false;
-						}
+						// Create a temporary canvas for the final export image
+						const tempCanvas = document.createElement("canvas");
+						tempCanvas.width = width;
+						tempCanvas.height = height;
+						const ctx = tempCanvas.getContext("2d");
 
-						// Generate data URL from the temp canvas
-						const qualityValue =
-							format === "jpg"
-								? highQuality
-									? 0.95
-									: 0.9
-								: undefined;
-						const finalImageFormat =
-							format === "svg" ? "png" : format;
-						exportDataURL = tempCanvas.toDataURL(
-							`image/${finalImageFormat}`,
-							qualityValue
+						if (ctx && croppedImage) {
+							// Set background color in case the crop is smaller than target dimensions
+							const bgColor = getCurrentColors().background;
+							ctx.fillStyle = bgColor;
+							ctx.fillRect(0, 0, width, height);
+
+							// Center the cropped image
+							const offsetX = (width - actualWidth) / 2;
+							const offsetY = (height - actualHeight) / 2;
+
+							// For abstract algorithm, scale up with extra clarity
+							if (algorithm === "abstract") {
+								// Draw with enhanced scaling for abstract algorithm
+								croppedImage.loadPixels();
+
+								// First draw at original size with high quality
+								ctx.drawImage(
+									croppedImage.canvas,
+									0,
+									0,
+									croppedImage.width,
+									croppedImage.height,
+									offsetX,
+									offsetY,
+									actualWidth,
+									actualHeight
+								);
+
+								// Apply higher quality settings
+								ctx.imageSmoothingEnabled = true;
+								ctx.imageSmoothingQuality = "high";
+
+								// Use a higher JPEG quality for abstract exports
+								const qualityValue =
+									format === "jpg" ? 0.98 : undefined;
+								const finalImageFormat =
+									format === "svg" ? "png" : format;
+								exportDataURL = tempCanvas.toDataURL(
+									`image/${finalImageFormat}`,
+									qualityValue
+								);
+							} else {
+								// Regular export for other algorithms
+								croppedImage.loadPixels();
+								ctx.drawImage(
+									croppedImage.canvas,
+									0,
+									0,
+									croppedImage.width,
+									croppedImage.height,
+									offsetX,
+									offsetY,
+									actualWidth,
+									actualHeight
+								);
+
+								// Apply image smoothing if high quality is requested
+								if (highQuality) {
+									ctx.imageSmoothingEnabled = true;
+									ctx.imageSmoothingQuality = "high";
+								} else {
+									ctx.imageSmoothingEnabled = false;
+								}
+
+								// Generate data URL from the temp canvas
+								const qualityValue =
+									format === "jpg"
+										? highQuality
+											? 0.95
+											: 0.9
+										: undefined;
+								const finalImageFormat =
+									format === "svg" ? "png" : format;
+								exportDataURL = tempCanvas.toDataURL(
+									`image/${finalImageFormat}`,
+									qualityValue
+								);
+							}
+						}
+					} else {
+						// Capture the cropped region directly from the p5 canvas
+						const croppedImage = sketchInstance.current.get(
+							cropX,
+							cropY,
+							actualWidth,
+							actualHeight
 						);
+
+						// Create a temporary canvas for the final export image
+						const tempCanvas = document.createElement("canvas");
+						tempCanvas.width = width;
+						tempCanvas.height = height;
+						const ctx = tempCanvas.getContext("2d");
+
+						if (ctx && croppedImage) {
+							// Set background color in case the crop is smaller than target dimensions
+							const bgColor = getCurrentColors().background;
+							ctx.fillStyle = bgColor;
+							ctx.fillRect(0, 0, width, height);
+
+							// Center the cropped image
+							const offsetX = (width - actualWidth) / 2;
+							const offsetY = (height - actualHeight) / 2;
+
+							// Draw the cropped image to the temporary canvas
+							croppedImage.loadPixels();
+							ctx.drawImage(
+								croppedImage.canvas,
+								0,
+								0,
+								croppedImage.width,
+								croppedImage.height,
+								offsetX,
+								offsetY,
+								actualWidth,
+								actualHeight
+							);
+
+							// Apply image smoothing if high quality is requested
+							if (highQuality) {
+								ctx.imageSmoothingEnabled = true;
+								ctx.imageSmoothingQuality = "high";
+							} else {
+								ctx.imageSmoothingEnabled = false;
+							}
+
+							// Generate data URL from the temp canvas
+							const qualityValue =
+								format === "jpg"
+									? highQuality
+										? 0.95
+										: 0.9
+									: undefined;
+							const finalImageFormat =
+								format === "svg" ? "png" : format;
+							exportDataURL = tempCanvas.toDataURL(
+								`image/${finalImageFormat}`,
+								qualityValue
+							);
+						}
 					}
 				}
 
