@@ -1002,6 +1002,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					// Mondriomaton (inspired by mondri.js)
 					// Initialize grid size based on density but keep it reasonable
 
+					// Get the abstract sub-algorithm
+					const abstractSubAlgorithm =
+						params.abstractAlgorithm || "mondriomaton";
+
 					// If we're in the process of saving/exporting, use a higher grid size
 					if (isSavingRef.current) {
 						console.log("Setting high-resolution grid for export");
@@ -1022,27 +1026,71 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					);
 
 					console.log(
-						`Initializing Mondriomaton with grid size: ${currentGridSize}, line width: ${currentLineWidth}`
+						`Initializing ${abstractSubAlgorithm} with grid size: ${currentGridSize}, line width: ${currentLineWidth}`
 					);
 
-					// Initialize grids
-					mondriGrid = [];
-					nextMondriGrid = [];
+					// Initialize algorithm-specific variables and state
+					if (abstractSubAlgorithm === "mondriomaton") {
+						// Initialize grids for Mondriomaton
+						mondriGrid = [];
+						nextMondriGrid = [];
 
-					for (let i = 0; i < currentGridSize; i++) {
-						mondriGrid[i] = [];
-						nextMondriGrid[i] = [];
-						for (let j = 0; j < currentGridSize; j++) {
-							// Use distribution closer to original mondri.js
-							// Initially, create a more balanced distribution of colors with fewer black (4) cells
-							// STATES 0: white background, 1-3: colors, 4: black
-							mondriGrid[i][j] = Math.floor(
-								p.random(MONDRI_STATES - 1)
-							); // 0-3 (no black/4 initially)
-							nextMondriGrid[i][j] = mondriGrid[i][j];
+						for (let i = 0; i < currentGridSize; i++) {
+							mondriGrid[i] = [];
+							nextMondriGrid[i] = [];
+							for (let j = 0; j < currentGridSize; j++) {
+								// Use distribution closer to original mondri.js
+								// Initially, create a more balanced distribution of colors with fewer black (4) cells
+								// STATES 0: white background, 1-3: colors, 4: black
+								mondriGrid[i][j] = Math.floor(
+									p.random(MONDRI_STATES - 1)
+								); // 0-3 (no black/4 initially)
+								nextMondriGrid[i][j] = mondriGrid[i][j];
+							}
+						}
+					} else if (abstractSubAlgorithm === "generativeMondrian") {
+						// Initialize state for Generative Mondrian algorithm
+						// This is a placeholder - will be implemented later
+						mondriGrid = []; // Still use the grid but with different rules
+						nextMondriGrid = [];
+
+						// Initialize with larger cells for Mondrian-style
+						for (let i = 0; i < currentGridSize; i++) {
+							mondriGrid[i] = [];
+							nextMondriGrid[i] = [];
+							for (let j = 0; j < currentGridSize; j++) {
+								// Simple initialization - mostly background with some primary colors
+								mondriGrid[i][j] =
+									p.random() < 0.8
+										? 0 // Background (white)
+										: Math.floor(p.random(1, 4)); // Colors 1-3
+								nextMondriGrid[i][j] = mondriGrid[i][j];
+							}
+						}
+					} else if (abstractSubAlgorithm === "circuitBoard") {
+						// Initialize state for Circuit Board algorithm
+						// This is a placeholder - will be implemented later
+						mondriGrid = [];
+						nextMondriGrid = [];
+
+						// Initialize with pattern suitable for circuit board style
+						for (let i = 0; i < currentGridSize; i++) {
+							mondriGrid[i] = [];
+							nextMondriGrid[i] = [];
+							for (let j = 0; j < currentGridSize; j++) {
+								// Initialize with mostly background and some "paths"
+								mondriGrid[i][j] =
+									p.random() < 0.7
+										? 0 // Background
+										: p.random() < 0.8
+										? 1 // Primary paths
+										: 2; // Secondary paths
+								nextMondriGrid[i][j] = mondriGrid[i][j];
+							}
 						}
 					}
 
+					// Common settings for all abstract algorithms
 					// Set frame rate lower for better performance
 					p.frameRate(10);
 
@@ -1327,144 +1375,9 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						return;
 					}
 
-					// Update based on frame count - less frequent updates for better performance
-					if (p.frameCount % 6 === 0 || currentIsSaving) {
-						// Copy current grid to next grid
-						for (let i = 0; i < mondriGrid.length; i++) {
-							for (let j = 0; j < mondriGrid[i].length; j++) {
-								nextMondriGrid[i][j] = mondriGrid[i][j];
-							}
-						}
-
-						// Apply simplified rules to each cell
-						for (let i = 0; i < mondriGrid.length; i++) {
-							for (let j = 0; j < mondriGrid[i].length; j++) {
-								// Skip line cells
-								if (mondriGrid[i][j] === 4) continue;
-
-								// Count neighbors
-								let neighbors = [0, 0, 0, 0, 0];
-								for (let di = -1; di <= 1; di++) {
-									for (let dj = -1; dj <= 1; dj++) {
-										if (di === 0 && dj === 0) continue;
-										const ni =
-											(i + di + currentGridSize) %
-											currentGridSize;
-										const nj =
-											(j + dj + currentGridSize) %
-											currentGridSize;
-										neighbors[mondriGrid[ni][nj]]++;
-									}
-								}
-
-								// De Stijl rules (closer to original mondri.js)
-								const currentState = mondriGrid[i][j];
-
-								// Rock-Paper-Scissors relationship between colors
-								const BEATS: Record<number, number> = {
-									1: 3, // Blue beats Red
-									2: 1, // Red beats Yellow
-									3: 2, // Yellow beats Blue
-								};
-
-								// Constants for rules (from original mondri.js with some adjustments)
-								const MIN_BEATEN = 3; // Original: 5
-								const MAX_BEATEN = 5; // Original: 10
-								const MIN_WHITE = 6; // Original: 14
-								const MAX_SAME_COLOR = 6; // Original: 12
-
-								// If white cell with enough white neighbors, spawn least common color
-								if (
-									currentState === 0 &&
-									neighbors[0] > MIN_WHITE
-								) {
-									let minCount = Infinity;
-									let minColor = 1;
-									for (let c = 1; c <= 3; c++) {
-										if (neighbors[c] < minCount) {
-											minCount = neighbors[c];
-											minColor = c;
-										}
-									}
-									nextMondriGrid[i][j] = minColor;
-								}
-								// Check if white cell is surrounded by enough of a color
-								else if (currentState === 0) {
-									for (let c = 1; c <= 3; c++) {
-										if (neighbors[c] > MAX_BEATEN) {
-											nextMondriGrid[i][j] = c;
-											break;
-										}
-									}
-								}
-								// For colored cells (1-3), check if beaten by another color
-								else if (
-									currentState >= 1 &&
-									currentState <= 3
-								) {
-									// Find which color beats this one
-									let beatenByCount = 0;
-									let beatingColor = null;
-
-									for (let c = 1; c <= 3; c++) {
-										if (
-											BEATS[c] === currentState &&
-											neighbors[c] > beatenByCount
-										) {
-											beatenByCount = neighbors[c];
-											beatingColor = c;
-										}
-									}
-
-									// If too many beating neighbors, turn white
-									if (beatenByCount > MAX_BEATEN) {
-										nextMondriGrid[i][j] = 0;
-									}
-									// If enough beating neighbors, convert to that color
-									else if (
-										beatingColor !== null &&
-										beatenByCount >= MIN_BEATEN
-									) {
-										nextMondriGrid[i][j] = beatingColor;
-									}
-									// If too many of same color nearby, turn black (sparingly) or white
-									else if (
-										neighbors[currentState] >=
-										MAX_SAME_COLOR
-									) {
-										// 30% chance to become black, otherwise white
-										nextMondriGrid[i][j] =
-											p.random() < 0.3 ? 4 : 0;
-									}
-								}
-								// Black cells can turn to a color that beats surrounding colors
-								else if (currentState === 4) {
-									for (let c = 1; c <= 3; c++) {
-										if (neighbors[c] > 4) {
-											const attacker = BEATS[c];
-											if (attacker)
-												nextMondriGrid[i][j] = attacker;
-											break;
-										}
-									}
-								}
-
-								// Random mutations for more dynamic patterns (occasional)
-								if (p.random() < 0.005) {
-									// Low probability of random color change
-									nextMondriGrid[i][j] = Math.floor(
-										p.random(MONDRI_STATES)
-									);
-								}
-							}
-						}
-
-						// Swap grids
-						[mondriGrid, nextMondriGrid] = [
-							nextMondriGrid,
-							mondriGrid,
-						];
-					}
+					// Get the abstract sub-algorithm
+					const abstractSubAlgorithm =
+						params.abstractAlgorithm || "mondriomaton";
 
 					// Setup colors for drawing
 					const stateColors = [];
@@ -1496,6 +1409,342 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 
 					// Line color (state 4)
 					stateColors[4] = appColors.foreground || p.color(0);
+
+					// Different update and drawing logic based on abstract sub-algorithm
+					if (abstractSubAlgorithm === "mondriomaton") {
+						// Update based on frame count for Mondriomaton
+						if (p.frameCount % 6 === 0 || currentIsSaving) {
+							// Copy current grid to next grid
+							for (let i = 0; i < mondriGrid.length; i++) {
+								for (let j = 0; j < mondriGrid[i].length; j++) {
+									nextMondriGrid[i][j] = mondriGrid[i][j];
+								}
+							}
+
+							// Apply De Stijl rules (closer to original mondri.js)
+							for (let i = 0; i < mondriGrid.length; i++) {
+								for (let j = 0; j < mondriGrid[i].length; j++) {
+									// Skip line cells
+									if (mondriGrid[i][j] === 4) continue;
+
+									// Count neighbors
+									let neighbors = [0, 0, 0, 0, 0];
+									for (let di = -1; di <= 1; di++) {
+										for (let dj = -1; dj <= 1; dj++) {
+											if (di === 0 && dj === 0) continue;
+											const ni =
+												(i + di + currentGridSize) %
+												currentGridSize;
+											const nj =
+												(j + dj + currentGridSize) %
+												currentGridSize;
+											neighbors[mondriGrid[ni][nj]]++;
+										}
+									}
+
+									// De Stijl rules (closer to original mondri.js)
+									const currentState = mondriGrid[i][j];
+
+									// Rock-Paper-Scissors relationship between colors
+									const BEATS: Record<number, number> = {
+										1: 3, // Blue beats Red
+										2: 1, // Red beats Yellow
+										3: 2, // Yellow beats Blue
+									};
+
+									// Constants for rules (from original mondri.js with some adjustments)
+									const MIN_BEATEN = 3; // Original: 5
+									const MAX_BEATEN = 5; // Original: 10
+									const MIN_WHITE = 6; // Original: 14
+									const MAX_SAME_COLOR = 6; // Original: 12
+
+									// If white cell with enough white neighbors, spawn least common color
+									if (
+										currentState === 0 &&
+										neighbors[0] > MIN_WHITE
+									) {
+										let minCount = Infinity;
+										let minColor = 1;
+										for (let c = 1; c <= 3; c++) {
+											if (neighbors[c] < minCount) {
+												minCount = neighbors[c];
+												minColor = c;
+											}
+										}
+										nextMondriGrid[i][j] = minColor;
+									}
+									// Check if white cell is surrounded by enough of a color
+									else if (currentState === 0) {
+										for (let c = 1; c <= 3; c++) {
+											if (neighbors[c] > MAX_BEATEN) {
+												nextMondriGrid[i][j] = c;
+												break;
+											}
+										}
+									}
+									// For colored cells (1-3), check if beaten by another color
+									else if (
+										currentState >= 1 &&
+										currentState <= 3
+									) {
+										// Find which color beats this one
+										let beatenByCount = 0;
+										let beatingColor = null;
+
+										for (let c = 1; c <= 3; c++) {
+											if (
+												BEATS[c] === currentState &&
+												neighbors[c] > beatenByCount
+											) {
+												beatenByCount = neighbors[c];
+												beatingColor = c;
+											}
+										}
+
+										// If too many beating neighbors, turn white
+										if (beatenByCount > MAX_BEATEN) {
+											nextMondriGrid[i][j] = 0;
+										}
+										// If enough beating neighbors, convert to that color
+										else if (
+											beatingColor !== null &&
+											beatenByCount >= MIN_BEATEN
+										) {
+											nextMondriGrid[i][j] = beatingColor;
+										}
+										// If too many of same color nearby, turn black (sparingly) or white
+										else if (
+											neighbors[currentState] >=
+											MAX_SAME_COLOR
+										) {
+											// 30% chance to become black, otherwise white
+											nextMondriGrid[i][j] =
+												p.random() < 0.3 ? 4 : 0;
+										}
+									}
+									// Black cells can turn to a color that beats surrounding colors
+									else if (currentState === 4) {
+										for (let c = 1; c <= 3; c++) {
+											if (neighbors[c] > 4) {
+												const attacker = BEATS[c];
+												if (attacker)
+													nextMondriGrid[i][j] =
+														attacker;
+												break;
+											}
+										}
+									}
+
+									// Random mutations for more dynamic patterns (occasional)
+									if (p.random() < 0.005) {
+										// Low probability of random color change
+										nextMondriGrid[i][j] = Math.floor(
+											p.random(MONDRI_STATES)
+										);
+									}
+								}
+							}
+
+							// Swap grids
+							[mondriGrid, nextMondriGrid] = [
+								nextMondriGrid,
+								mondriGrid,
+							];
+						}
+					} else if (abstractSubAlgorithm === "generativeMondrian") {
+						// Generative Mondrian uses a different approach - recursive splitting
+						if (p.frameCount % 20 === 0 || currentIsSaving) {
+							// Occasionally reorganize grid to create new compositions
+							let randomRow = Math.floor(
+								p.random(mondriGrid.length)
+							);
+							let randomCol = Math.floor(
+								p.random(mondriGrid[0].length)
+							);
+
+							// Create a rectangular region
+							const regionWidth = Math.floor(p.random(2, 5));
+							const regionHeight = Math.floor(p.random(2, 5));
+
+							// Fill region with a single color
+							const fillColor = Math.floor(p.random(0, 4)); // 0-3 (no black)
+
+							// Apply the fill
+							for (let i = 0; i < regionWidth; i++) {
+								for (let j = 0; j < regionHeight; j++) {
+									const x =
+										(randomRow + i) % mondriGrid.length;
+									const y =
+										(randomCol + j) % mondriGrid[0].length;
+									mondriGrid[x][y] = fillColor;
+								}
+							}
+
+							// Add some border lines
+							if (p.random() < 0.3) {
+								for (let i = 0; i < regionWidth; i++) {
+									const x =
+										(randomRow + i) % mondriGrid.length;
+									const y = randomCol % mondriGrid[0].length;
+									mondriGrid[x][y] = 4; // Black line
+								}
+							}
+
+							if (p.random() < 0.3) {
+								for (let j = 0; j < regionHeight; j++) {
+									const x = randomRow % mondriGrid.length;
+									const y =
+										(randomCol + j) % mondriGrid[0].length;
+									mondriGrid[x][y] = 4; // Black line
+								}
+							}
+						}
+					} else if (abstractSubAlgorithm === "circuitBoard") {
+						// Circuit Board algorithm - create flowing paths
+						if (p.frameCount % 8 === 0 || currentIsSaving) {
+							// Update circuit paths
+
+							// Copy current grid to next grid
+							for (let i = 0; i < mondriGrid.length; i++) {
+								for (let j = 0; j < mondriGrid[i].length; j++) {
+									nextMondriGrid[i][j] = mondriGrid[i][j];
+								}
+							}
+
+							// Create/extend circuit paths
+							for (let i = 0; i < mondriGrid.length; i++) {
+								for (let j = 0; j < mondriGrid[i].length; j++) {
+									// If this is a path
+									if (mondriGrid[i][j] > 0) {
+										// Extend paths with some probability
+										if (p.random() < 0.2) {
+											// Pick a random direction
+											const dir = Math.floor(p.random(4));
+											let ni = i,
+												nj = j;
+
+											// Move in that direction
+											if (dir === 0)
+												ni =
+													(i -
+														1 +
+														mondriGrid.length) %
+													mondriGrid.length;
+											else if (dir === 1)
+												ni =
+													(i + 1) % mondriGrid.length;
+											else if (dir === 2)
+												nj =
+													(j -
+														1 +
+														mondriGrid[0].length) %
+													mondriGrid[0].length;
+											else
+												nj =
+													(j + 1) %
+													mondriGrid[0].length;
+
+											// Create a path in that direction
+											if (mondriGrid[ni][nj] === 0) {
+												nextMondriGrid[ni][nj] =
+													mondriGrid[i][j];
+											}
+										}
+
+										// Occasionally create a junction (branch)
+										if (p.random() < 0.05) {
+											// Pick a random neighbor
+											const neighbors = [];
+											for (let di = -1; di <= 1; di++) {
+												for (
+													let dj = -1;
+													dj <= 1;
+													dj++
+												) {
+													if (di === 0 && dj === 0)
+														continue;
+													const ni =
+														(i +
+															di +
+															mondriGrid.length) %
+														mondriGrid.length;
+													const nj =
+														(j +
+															dj +
+															mondriGrid[0]
+																.length) %
+														mondriGrid[0].length;
+													if (
+														mondriGrid[ni][nj] === 0
+													) {
+														neighbors.push([
+															ni,
+															nj,
+														]);
+													}
+												}
+											}
+
+											// Create a branch
+											if (neighbors.length > 0) {
+												const [ni, nj] =
+													neighbors[
+														Math.floor(
+															p.random(
+																neighbors.length
+															)
+														)
+													];
+												nextMondriGrid[ni][nj] =
+													mondriGrid[i][j];
+											}
+										}
+									}
+
+									// Occasionally start a new path
+									else if (
+										mondriGrid[i][j] === 0 &&
+										p.random() < 0.0005
+									) {
+										nextMondriGrid[i][j] = Math.floor(
+											p.random(1, 4)
+										); // 1-3
+									}
+								}
+							}
+
+							// Swap grids
+							[mondriGrid, nextMondriGrid] = [
+								nextMondriGrid,
+								mondriGrid,
+							];
+						}
+					}
+
+					// Common settings for all abstract algorithms
+					// Set frame rate lower for better performance
+					p.frameRate(10);
+
+					// Generate grid positions using splitAxis with reasonable depth
+					const nLog2 = Math.floor(Math.log2(currentGridSize));
+					currentRowPositions = splitAxis(
+						0,
+						p.height,
+						nLog2,
+						true,
+						normalizedParams.noiseScale,
+						normalizedParams.speed
+					);
+					currentColPositions = splitAxis(
+						0,
+						p.width,
+						nLog2,
+						false,
+						normalizedParams.noiseScale,
+						normalizedParams.speed
+					);
+					currentRowPositions.push(p.height);
+					currentColPositions.push(p.width);
 
 					// Draw each cell
 					for (let i = 0; i < mondriGrid.length; i++) {

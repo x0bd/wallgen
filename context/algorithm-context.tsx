@@ -17,6 +17,12 @@ export type AlgorithmType =
 	| "abstract"
 	| "flowPlotter";
 
+// Define abstract sub-algorithm types
+export type AbstractSubAlgorithmType =
+	| "mondriomaton"
+	| "generativeMondrian"
+	| "circuitBoard";
+
 // Define the parameters for each algorithm
 export interface AlgorithmParams {
 	noiseScale: number;
@@ -29,6 +35,7 @@ export interface AlgorithmParams {
 	strokeLength?: number;
 	strokeThickness?: number;
 	imageUrl?: string;
+	abstractAlgorithm?: AbstractSubAlgorithmType; // New param for abstract sub-algorithm selection
 }
 
 // Define the color options
@@ -101,6 +108,7 @@ const defaultParams: AlgorithmParams = {
 	strokeLength: 15,
 	strokeThickness: 50,
 	imageUrl: "/images/wall.jpg", // Default image
+	abstractAlgorithm: "mondriomaton", // Default abstract sub-algorithm
 };
 
 // Default color options
