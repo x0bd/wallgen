@@ -4,7 +4,6 @@ import { P5Canvas } from "@/components/P5Canvas";
 import { Navbar } from "@/components/navbar";
 import { WidgetSidebar } from "@/components/widgets/widget-sidebar";
 import { SaveProgress } from "@/components/GenerationProgress";
-import SubAlgorithmSelector from "@/components/SubAlgorithmSelector";
 import {
 	Waves,
 	Hexagon,
@@ -365,18 +364,6 @@ export default function Home() {
 								<span>ABSTRACT</span>
 							</motion.button>
 						</div>
-
-						{/* Sub-Algorithm Selection for Abstract */}
-						{algorithm === "abstract" && (
-							<motion.div
-								initial={{ opacity: 0, height: 0 }}
-								animate={{ opacity: 1, height: "auto" }}
-								exit={{ opacity: 0, height: 0 }}
-								transition={{ duration: 0.3 }}
-							>
-								<SubAlgorithmSelector />
-							</motion.div>
-						)}
 					</motion.div>
 				</div>
 			</main>

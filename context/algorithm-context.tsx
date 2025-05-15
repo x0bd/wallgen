@@ -10,17 +10,12 @@ import {
 	useEffect,
 } from "react";
 
-// Algorithm types
+// Define algorithm types
 export type AlgorithmType =
 	| "perlinNoise"
-	| "flowField"
 	| "cellular"
-	| "flowPlotter"
-	| "abstract";
-export type AbstractSubAlgorithmType =
-	| "mondriomaton"
-	| "futureAbstract1"
-	| "futureAbstract2";
+	| "abstract"
+	| "flowPlotter";
 
 // Define the parameters for each algorithm
 export interface AlgorithmParams {
@@ -49,7 +44,7 @@ export interface ColorOption {
 // Define the context state
 interface AlgorithmContextState {
 	algorithm: AlgorithmType;
-	subAlgorithm: AbstractSubAlgorithmType | null;
+	setAlgorithm: (type: AlgorithmType) => void;
 	params: AlgorithmParams;
 	updateParams: (updates: Partial<AlgorithmParams>) => void;
 	resetParams: () => void;
@@ -75,8 +70,7 @@ interface AlgorithmContextState {
 	saveCurrentState: () => void;
 	clearCanvas: () => void;
 	finishSaving: () => void;
-	triggerInitialization: number;
-	retriggerInitialization: () => void;
+	triggerInitialization: () => void;
 	uploadImage: (file: File) => void;
 	resetImage: () => void;
 	exportCanvas: (options: {
@@ -88,12 +82,6 @@ interface AlgorithmContextState {
 		addBorder?: boolean;
 		highQuality?: boolean;
 	}) => void;
-	setAlgorithm: (algorithm: AlgorithmType) => void;
-	setSubAlgorithm: (subAlgorithm: AbstractSubAlgorithmType | null) => void;
-	setParams: (params: AlgorithmParams) => void;
-	updateParam: (name: string, value: any) => void;
-	triggerRedraw: () => void;
-	initializeCanvas: () => void;
 }
 
 // Create context with default values
@@ -257,8 +245,6 @@ const debounce = (func: Function, wait: number) => {
 export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	// Algorithm state
 	const [algorithm, setAlgorithm] = useState<AlgorithmType>("perlinNoise");
-	const [subAlgorithm, setSubAlgorithm] =
-		useState<AbstractSubAlgorithmType | null>(null);
 
 	// Parameters state
 	const [params, setParams] = useState<AlgorithmParams>(defaultParams);
@@ -273,7 +259,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	const [needsRedraw, setNeedsRedraw] = useState(false);
 	const [hasContent, setHasContent] = useState(true); // Always true in continuous mode
 	const [isSaving, setIsSaving] = useState(false);
-	const [triggerInitialization, setTriggerInitialization] = useState(0);
+	const [initSignal, setInitSignal] = useState(0); // State to trigger initialization
 
 	// Debounced initialization
 	const debouncedInitRef = useRef<ReturnType<typeof debounce> | null>(null);
@@ -281,7 +267,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	// Create debounced initialization function
 	useEffect(() => {
 		debouncedInitRef.current = debounce(() => {
-			setTriggerInitialization((prev) => prev + 1);
+			setInitSignal((s) => s + 1);
 			setNeedsRedraw(true);
 		}, 250); // 250ms debounce
 
@@ -294,7 +280,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		// Start with content and initialize immediately
 		setNeedsRedraw(true);
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 	}, []);
 
 	// Update parameters - use debounced initialization to avoid performance drops
@@ -307,7 +293,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 			updates.randomizeOnLoad !== undefined ||
 			updates.autoAdjust !== undefined
 		) {
-			setTriggerInitialization((prev) => prev + 1);
+			setInitSignal((s) => s + 1);
 			setNeedsRedraw(true);
 		} else {
 			// For slider controls, use debounced update
@@ -318,7 +304,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	// Reset parameters - also trigger redraw
 	const resetParams = useCallback(() => {
 		setParams(defaultParams);
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 		setNeedsRedraw(true);
 	}, []);
 
@@ -359,13 +345,13 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 		window.dispatchEvent(resetEvent);
 
 		// Also trigger regular initialization (for backward compatibility)
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 		setNeedsRedraw(true);
 	}, []);
 
 	// Function to explicitly trigger initialization
-	const initializeCanvas = useCallback(() => {
-		setTriggerInitialization((prev) => prev + 1);
+	const triggerInitialization = useCallback(() => {
+		setInitSignal((s) => s + 1);
 	}, []);
 
 	// Add custom color
@@ -378,7 +364,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 			};
 			setColorOptions((prev) => [...prev, newColor]);
 			setSelectedColorId(newColor.id);
-			setTriggerInitialization((prev) => prev + 1);
+			setInitSignal((s) => s + 1);
 			setNeedsRedraw(true);
 		},
 		[]
@@ -392,7 +378,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 					c.id === id ? { ...c, ...color, isCustom: true } : c
 				)
 			);
-			setTriggerInitialization((prev) => prev + 1);
+			setInitSignal((s) => s + 1);
 			setNeedsRedraw(true);
 		},
 		[]
@@ -408,7 +394,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 				setSelectedColorId(defaultColorOptions[0].id);
 			}
 
-			setTriggerInitialization((prev) => prev + 1);
+			setInitSignal((s) => s + 1);
 			setNeedsRedraw(true);
 		},
 		[selectedColorId]
@@ -417,14 +403,14 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 	// Update selected color - trigger redraw
 	const updateSelectedColorId = useCallback((id: string) => {
 		setSelectedColorId(id);
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 		setNeedsRedraw(true);
 	}, []);
 
 	// Update inversion - trigger redraw
 	const updateIsInverted = useCallback((inverted: boolean) => {
 		setIsInverted(inverted);
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 		setNeedsRedraw(true);
 	}, []);
 
@@ -509,7 +495,7 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 				}));
 
 				// Trigger initialization with the new image
-				setTriggerInitialization((prev) => prev + 1);
+				setInitSignal((s) => s + 1);
 				setNeedsRedraw(true);
 			}
 		};
@@ -526,98 +512,15 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 		}));
 
 		// Trigger initialization
-		setTriggerInitialization((prev) => prev + 1);
+		setInitSignal((s) => s + 1);
 		setNeedsRedraw(true);
 	}, []);
-
-	// Handle algorithm changes
-	useEffect(() => {
-		// Reset sub-algorithm when main algorithm changes
-		if (algorithm !== "abstract") {
-			setSubAlgorithm(null);
-		} else if (!subAlgorithm) {
-			// Default to mondriomaton if abstract is selected but no sub-algorithm is set
-			setSubAlgorithm("mondriomaton");
-		}
-
-		// Default params for different algorithms
-		const defaultParams: Record<string, any> = {
-			perlinNoise: {
-				speed: 50,
-				complexity: 50,
-				density: 50,
-				noiseScale: 50,
-				transparentBackground: false,
-				randomizeOnLoad: true,
-			},
-			cellular: {
-				speed: 50,
-				complexity: 50,
-				density: 50,
-				noiseScale: 50,
-			},
-			flowPlotter: {
-				speed: 50,
-				complexity: 50,
-				density: 50,
-				noiseScale: 50,
-				imageUrl: "/images/wall.jpg",
-			},
-			abstract: {
-				speed: 50,
-				complexity: 50,
-				density: 50,
-				noiseScale: 50,
-				strokeThickness: 50,
-			},
-		};
-
-		setParams(defaultParams[algorithm] || {});
-		retriggerInitialization();
-	}, [algorithm]);
-
-	// Trigger reinitialization when sub-algorithm changes
-	useEffect(() => {
-		if (algorithm === "abstract" && subAlgorithm) {
-			retriggerInitialization();
-		}
-	}, [subAlgorithm]);
-
-	// Function to update a single parameter
-	const updateParam = useCallback((name: string, value: any) => {
-		setParams((prev) => ({
-			...prev,
-			[name]: value,
-		}));
-		setNeedsRedraw(true);
-	}, []);
-
-	// Function to trigger a redraw
-	const triggerRedraw = useCallback(() => {
-		setNeedsRedraw(true);
-		// Reset the flag after a short delay
-		setTimeout(() => {
-			setNeedsRedraw(false);
-		}, 100);
-	}, []);
-
-	// Function to trigger reinitialization
-	const retriggerInitialization = useCallback(() => {
-		setTriggerInitialization((prev) => prev + 1);
-	}, []);
-
-	// Set hasContent to true after initialization
-	useEffect(() => {
-		if (triggerInitialization > 0) {
-			setHasContent(true);
-		}
-	}, [triggerInitialization]);
 
 	return (
 		<AlgorithmContext.Provider
 			value={{
 				algorithm,
-				subAlgorithm,
+				setAlgorithm,
 				params,
 				updateParams,
 				resetParams,
@@ -637,16 +540,9 @@ export function AlgorithmProvider({ children }: { children: ReactNode }) {
 				clearCanvas,
 				finishSaving,
 				triggerInitialization,
-				retriggerInitialization,
 				uploadImage,
 				resetImage,
 				exportCanvas,
-				setAlgorithm,
-				setSubAlgorithm,
-				setParams,
-				updateParam,
-				triggerRedraw,
-				initializeCanvas,
 			}}
 		>
 			{children}
