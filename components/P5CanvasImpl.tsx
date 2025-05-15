@@ -128,6 +128,72 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 			let quadtree: QuadTree<any> | null = null;
 			const QUAD_CAP = 8; // Capacity of quadtree nodes
 
+			// Mondriomaton specific state variables
+			let mondriGrid: number[][] = [];
+			let nextMondriGrid: number[][] = [];
+			let currentGridSize: number = 32;
+			let currentCellSize: number = 0;
+			let currentRowPositions: number[] = [];
+			let currentColPositions: number[] = [];
+			let currentLineWidth: number = 2;
+			const MONDRI_STATES = 5; // 0: background, 1-3: primary colors, 4: line color
+
+			// Helper function: splitAxis (adapted from mondri.js) - defined here so it can be used in both initialization and resize
+			const splitAxis = (
+				start: number,
+				end: number,
+				depth: number,
+				isRow: boolean,
+				noiseScale: number,
+				noiseSpeed: number
+			): number[] => {
+				if (depth <= 0) return [start];
+
+				let midBase = (start + end) / 2;
+
+				// Use noise for organic divisions
+				const noiseVal = p.noise(
+					(isRow ? start : end) * 0.001 * noiseScale,
+					p.frameCount * 0.001 * noiseSpeed
+				);
+
+				// Map noise to create offset within reasonable bounds
+				const noiseOffset =
+					p.map(noiseVal, 0, 1, -0.15, 0.15) * (end - start);
+
+				// Constrain mid to ensure we don't get zero-width cells
+				let mid = p.constrain(
+					midBase + noiseOffset,
+					start + (end - start) * 0.1,
+					end - (end - start) * 0.1
+				);
+
+				// Additional safeguards against bad splits
+				if (mid <= start) mid = start + (end - start) * 0.5;
+				if (mid >= end) mid = end - (end - start) * 0.5;
+
+				// Recursively split left and right
+				let left = splitAxis(
+					start,
+					mid,
+					depth - 1,
+					isRow,
+					noiseScale,
+					noiseSpeed
+				);
+				let right = splitAxis(
+					mid,
+					end,
+					depth - 1,
+					isRow,
+					noiseScale,
+					noiseSpeed
+				);
+
+				// Return concatenated arrays
+				return left.concat(right);
+			};
+
 			// Performance optimization flags
 			let lastParams: any = {
 				...params,
@@ -679,10 +745,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 			// Initialize particles based on the current algorithm
 			const initializeParticles = () => {
 				const normalizedParams = getNormalizedParams();
-				const colors = getColors();
-				const [bgR, bgG, bgB] = getRGB(colors.background);
+				const appColors = getColors();
+				const [bgR, bgG, bgB] = getRGB(appColors.background);
 
-				p.background(bgR, bgG, bgB); // General background clear
+				p.background(bgR, bgG, bgB);
 
 				// Check if we really need to recreate particles (for performance)
 				// Only recreate particles if certain params have changed significantly
@@ -733,11 +799,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					const particleColors = [];
 
 					if (
-						colors.foregroundColors &&
-						colors.foregroundColors.length > 0
+						appColors.foregroundColors &&
+						appColors.foregroundColors.length > 0
 					) {
 						// Use the provided foreground colors
-						colors.foregroundColors.forEach((color) => {
+						appColors.foregroundColors.forEach((color) => {
 							particleColors.push(color);
 						});
 					} else if (
@@ -752,7 +818,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						particleColors.push(p.color("#FFC30F")); // yellow
 					} else {
 						// For custom colors, still use 5 variants for consistency
-						const foreground = colors.foreground;
+						const foreground = appColors.foreground;
 						const [r, g, b] = getRGB(foreground);
 
 						// Create 5 variations based on the foreground color
@@ -793,8 +859,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					);
 
 					// Get the number of available colors - including background color
-					const colorsList = colors.foregroundColors || [
-						colors.foreground,
+					const colorsList = appColors.foregroundColors || [
+						appColors.foreground,
 					];
 					const stateCount = Math.max(3, colorsList.length + 1); // +1 to include background color
 
@@ -933,272 +999,77 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						}
 					);
 				} else if (algorithm === "abstract") {
-					// Voronoi Patterns algorithm implementation
-					p.background(bgR, bgG, bgB);
+					// Mondriomaton (inspired by mondri.js)
+					// Initialize grid size based on density but keep it reasonable
+					currentGridSize = 16; // Fixed size for better performance
+					currentCellSize =
+						Math.max(p.width, p.height) / currentGridSize;
 
-					// Use multiple foreground colors if available
-					const fgColors = colors.foregroundColors || [
-						colors.foreground,
-					];
-
-					// Update time for animation
-					time += normalizedParams.speed * 0.01;
-
-					// Create seed points for Voronoi pattern if they don't exist or reset is triggered
-					if (
-						!particles.length ||
-						Math.abs(params.density - lastParams.density) > 5
-					) {
-						// Clear any existing particles
-						particles = [];
-
-						// Number of seeds based on density parameter
-						const seedCount = Math.floor(
-							20 + normalizedParams.density * 0.8
-						);
-
-						// Create seeds with random positions and colors
-						for (let i = 0; i < seedCount; i++) {
-							particles.push({
-								x: p.random(p.width),
-								y: p.random(p.height),
-								state: Math.floor(
-									p.random(1, fgColors.length + 1)
-								), // 1-based index for colors
-								power: p.random(0.8, 1.2), // Influence power
-								age: 0,
-								// Add small random velocity for movement
-								vx: p.random(-0.5, 0.5),
-								vy: p.random(-0.5, 0.5),
-							});
-						}
-					}
-
-					// Update existing seed properties
-					for (let seed of particles) {
-						// Age the seed
-						seed.age += normalizedParams.speed * 0.01;
-
-						// Apply movement based on speed parameter
-						seed.x += seed.vx * normalizedParams.speed * 0.1;
-						seed.y += seed.vy * normalizedParams.speed * 0.1;
-
-						// Occasionally change direction
-						if (p.random() < 0.02) {
-							seed.vx = p.random(-0.5, 0.5);
-							seed.vy = p.random(-0.5, 0.5);
-						}
-
-						// Keep seeds within canvas bounds
-						if (seed.x < 0 || seed.x > p.width) {
-							seed.vx *= -1;
-							seed.x = p.constrain(seed.x, 0, p.width);
-						}
-						if (seed.y < 0 || seed.y > p.height) {
-							seed.vy *= -1;
-							seed.y = p.constrain(seed.y, 0, p.height);
-						}
-
-						// Occasionally change state based on complexity parameter
-						if (
-							p.random() <
-							0.001 * normalizedParams.complexity * 0.1
-						) {
-							seed.state = Math.floor(
-								p.random(1, fgColors.length + 1)
-							);
-						}
-
-						// Power fluctuates slightly
-						seed.power *= p.random(0.995, 1.005);
-						seed.power = p.constrain(seed.power, 0.5, 1.5);
-					}
-
-					// Remove seeds that are too old and add new ones occasionally
-					particles = particles.filter((seed) => seed.age < 10);
-
-					// Occasionally add a new seed
-					if (p.random() < 0.02 * normalizedParams.density * 0.01) {
-						particles.push({
-							x: p.random(p.width),
-							y: p.random(p.height),
-							state: Math.floor(p.random(1, fgColors.length + 1)),
-							power: p.random(0.8, 1.2),
-							age: 0,
-							vx: p.random(-0.5, 0.5),
-							vy: p.random(-0.5, 0.5),
-						});
-					}
-
-					// Cap the maximum number of seeds
-					const MAX_SEEDS = Math.floor(
-						30 + normalizedParams.complexity
-					);
-					if (particles.length > MAX_SEEDS) {
-						particles.sort((a, b) => b.age - a.age); // Sort by age
-						particles = particles.slice(0, MAX_SEEDS);
-					}
-
-					// Render Voronoi pattern
-					// Resolution for rendering based on complexity (higher complexity = lower resolution = more detail)
-					const resolution = Math.floor(
-						16 - normalizedParams.complexity * 0.1
+					// Set line width based on density with reasonable limits
+					currentLineWidth = Math.max(
+						1,
+						Math.min(
+							3,
+							Math.ceil(normalizedParams.density * 0.3) + 1
+						)
 					);
 
-					// Create an offscreen buffer for faster rendering
-					const buffer = p.createGraphics(p.width, p.height);
-					buffer.background(bgR, bgG, bgB);
-					buffer.noStroke();
+					console.log(
+						`Initializing Mondriomaton with grid size: ${currentGridSize}, line width: ${currentLineWidth}`
+					);
 
-					// Draw Voronoi-like cells
-					for (let x = 0; x < p.width; x += resolution) {
-						for (let y = 0; y < p.height; y += resolution) {
-							let closestSeed = null;
-							let minDist = Infinity;
+					// Initialize grids
+					mondriGrid = [];
+					nextMondriGrid = [];
 
-							// Find closest seed with modified distance calculation
-							for (let seed of particles) {
-								// Use a combination of Manhattan and Euclidean distance with power influence
-								const dx = Math.abs(x - seed.x);
-								const dy = Math.abs(y - seed.y);
-
-								// Distance formula varies based on noise - creates more interesting patterns
-								let dist;
-								const noiseValue = p.noise(
-									x * 0.001,
-									y * 0.001,
-									time * 0.1
-								);
-
-								if (noiseValue < 0.33) {
-									// Manhattan distance
-									dist = (dx + dy) * (1 / seed.power);
-								} else if (noiseValue < 0.66) {
-									// Euclidean distance
-									dist =
-										Math.sqrt(dx * dx + dy * dy) *
-										(1 / seed.power);
-								} else {
-									// Chebyshev distance
-									dist = Math.max(dx, dy) * (1 / seed.power);
-								}
-
-								if (dist < minDist) {
-									minDist = dist;
-									closestSeed = seed;
-								}
-							}
-
-							if (closestSeed) {
-								// Get color based on seed state (using 1-based index)
-								const colorIdx =
-									(closestSeed.state - 1) % fgColors.length;
-								buffer.fill(fgColors[colorIdx]);
-								buffer.rect(x, y, resolution, resolution);
-							}
+					for (let i = 0; i < currentGridSize; i++) {
+						mondriGrid[i] = [];
+						nextMondriGrid[i] = [];
+						for (let j = 0; j < currentGridSize; j++) {
+							// Mostly white with some colored cells
+							mondriGrid[i][j] =
+								p.random() < 0.15
+									? Math.floor(p.random(3)) + 1
+									: 0;
+							nextMondriGrid[i][j] = mondriGrid[i][j];
 						}
 					}
 
-					// Apply the buffer to the main canvas
-					p.image(buffer, 0, 0);
+					// Set frame rate lower for better performance
+					p.frameRate(2);
 
-					// Draw boundaries between different cell types
-					p.stroke(colors.background);
-					p.strokeWeight(
-						1 + (1 - normalizedParams.complexity / 100) * 2
-					); // Thicker lines for lower complexity
-
-					// Sample resolution for boundary detection
-					const sampleRes = Math.max(4, resolution);
-
-					// Helper function to get state at position
-					const getClosestState = (x: number, y: number): number => {
-						let closestSeed = null;
-						let minDist = Infinity;
-
-						for (let seed of particles) {
-							const dx = Math.abs(x - seed.x);
-							const dy = Math.abs(y - seed.y);
-							const dist = (dx + dy) * (1 / seed.power);
-
-							if (dist < minDist) {
-								minDist = dist;
-								closestSeed = seed;
-							}
-						}
-
-						return closestSeed ? closestSeed.state : 0;
-					};
-
-					// Draw boundaries only if complexity is high enough
-					if (normalizedParams.complexity > 30) {
-						for (let x = 0; x < p.width; x += sampleRes) {
-							for (let y = 0; y < p.height; y += sampleRes) {
-								const state1 = getClosestState(x, y);
-								const state2 = getClosestState(
-									x + sampleRes,
-									y
-								);
-								const state3 = getClosestState(
-									x,
-									y + sampleRes
-								);
-
-								// Draw horizontal boundary if states differ
-								if (state1 !== state2) {
-									p.line(
-										x + sampleRes / 2,
-										y,
-										x + sampleRes / 2,
-										y + sampleRes
-									);
-								}
-
-								// Draw vertical boundary if states differ
-								if (state1 !== state3) {
-									p.line(
-										x,
-										y + sampleRes / 2,
-										x + sampleRes,
-										y + sampleRes / 2
-									);
-								}
-							}
-						}
-					}
-
-					// Draw some highlight points at seed locations for visual interest
-					if (normalizedParams.complexity > 70) {
-						p.noStroke();
-						for (let seed of particles) {
-							// Get color based on seed state
-							const colorIdx = (seed.state - 1) % fgColors.length;
-							const c = fgColors[colorIdx];
-
-							// Create a brighter version for the highlight
-							p.fill(
-								p.red(c) * 1.2,
-								p.green(c) * 1.2,
-								p.blue(c) * 1.2,
-								200
-							);
-							p.ellipse(seed.x, seed.y, 4, 4);
-						}
-					}
-
-					drawBorder(colors.foreground);
+					// Generate grid positions using splitAxis with reasonable depth
+					const nLog2 = Math.floor(Math.log2(currentGridSize));
+					currentRowPositions = splitAxis(
+						0,
+						p.height,
+						nLog2,
+						true,
+						normalizedParams.noiseScale,
+						normalizedParams.speed
+					);
+					currentColPositions = splitAxis(
+						0,
+						p.width,
+						nLog2,
+						false,
+						normalizedParams.noiseScale,
+						normalizedParams.speed
+					);
+					currentRowPositions.push(p.height);
+					currentColPositions.push(p.width);
 				} else {
 					// Default fallback: clear background and draw border
 					p.background(bgR, bgG, bgB);
-					drawBorder(colors.foreground);
+					drawBorder(appColors.foreground);
 				}
 			};
 
 			// Draw function
 			p.draw = () => {
 				const normalizedParams = getNormalizedParams();
-				const colors = getColors();
-				const [bgR, bgG, bgB] = getRGB(colors.background);
+				const appColors = getColors();
+				const [bgR, bgG, bgB] = getRGB(appColors.background);
 				const currentIsSaving = isSavingRef.current;
 
 				if (algorithm === "perlinNoise") {
@@ -1247,7 +1118,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					}
 
 					// Draw border after particles
-					drawBorder(colors.foreground);
+					drawBorder(appColors.foreground);
 				} else if (
 					algorithm === "cellular" &&
 					particles.length > 0 &&
@@ -1260,22 +1131,22 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					let cellColors: any[] = [];
 
 					if (
-						colors.foregroundColors &&
-						colors.foregroundColors.length > 0
+						appColors.foregroundColors &&
+						appColors.foregroundColors.length > 0
 					) {
 						// Include the background color as part of the palette
 						cellColors = [
-							colors.background,
-							...colors.foregroundColors,
+							appColors.background,
+							...appColors.foregroundColors,
 						];
 					} else {
 						// Create color variations from the foreground color and include background
-						const [fr, fg, fb] = getRGB(colors.foreground);
+						const [fr, fg, fb] = getRGB(appColors.foreground);
 
 						// Create variations and include background color
 						cellColors = [
-							colors.background, // Include background color as one of the states
-							colors.foreground,
+							appColors.background, // Include background color as one of the states
+							appColors.foreground,
 							p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
 							p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
 							p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
@@ -1305,7 +1176,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					particles[0].display(cellColors);
 
 					// Draw border around the canvas - now disabled in this function
-					drawBorder(colors.foreground);
+					drawBorder(appColors.foreground);
 				} else if (
 					algorithm === "flowPlotter" &&
 					particles.length > 0 &&
@@ -1437,263 +1308,181 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						p.pop();
 					}
 				} else if (algorithm === "abstract") {
-					// Voronoi Patterns algorithm implementation
-					p.background(bgR, bgG, bgB);
+					// Clear background
+					p.background(appColors.background);
 
-					// Use multiple foreground colors if available
-					const fgColors = colors.foregroundColors || [
-						colors.foreground,
-					];
-
-					// Update time for animation
-					time += normalizedParams.speed * 0.01;
-
-					// Create seed points for Voronoi pattern if they don't exist or reset is triggered
+					// Only proceed if grid is properly initialized
 					if (
-						!particles.length ||
-						Math.abs(params.density - lastParams.density) > 5
+						mondriGrid.length === 0 ||
+						currentRowPositions.length === 0
 					) {
-						// Clear any existing particles
-						particles = [];
-
-						// Number of seeds based on density parameter
-						const seedCount = Math.floor(
-							20 + normalizedParams.density * 0.8
-						);
-
-						// Create seeds with random positions and colors
-						for (let i = 0; i < seedCount; i++) {
-							particles.push({
-								x: p.random(p.width),
-								y: p.random(p.height),
-								state: Math.floor(
-									p.random(1, fgColors.length + 1)
-								), // 1-based index for colors
-								power: p.random(0.8, 1.2), // Influence power
-								age: 0,
-								// Add small random velocity for movement
-								vx: p.random(-0.5, 0.5),
-								vy: p.random(-0.5, 0.5),
-							});
-						}
+						return;
 					}
 
-					// Update existing seed properties
-					for (let seed of particles) {
-						// Age the seed
-						seed.age += normalizedParams.speed * 0.01;
-
-						// Apply movement based on speed parameter
-						seed.x += seed.vx * normalizedParams.speed * 0.1;
-						seed.y += seed.vy * normalizedParams.speed * 0.1;
-
-						// Occasionally change direction
-						if (p.random() < 0.02) {
-							seed.vx = p.random(-0.5, 0.5);
-							seed.vy = p.random(-0.5, 0.5);
+					// Update based on frame count - less frequent updates for better performance
+					if (p.frameCount % 30 === 0 || currentIsSaving) {
+						// Copy current grid to next grid
+						for (let i = 0; i < mondriGrid.length; i++) {
+							for (let j = 0; j < mondriGrid[i].length; j++) {
+								nextMondriGrid[i][j] = mondriGrid[i][j];
+							}
 						}
 
-						// Keep seeds within canvas bounds
-						if (seed.x < 0 || seed.x > p.width) {
-							seed.vx *= -1;
-							seed.x = p.constrain(seed.x, 0, p.width);
-						}
-						if (seed.y < 0 || seed.y > p.height) {
-							seed.vy *= -1;
-							seed.y = p.constrain(seed.y, 0, p.height);
+						// Apply simplified rules to each cell
+						for (let i = 0; i < mondriGrid.length; i++) {
+							for (let j = 0; j < mondriGrid[i].length; j++) {
+								// Skip line cells
+								if (mondriGrid[i][j] === 4) continue;
+
+								// Count neighbors
+								let neighbors = [0, 0, 0, 0, 0];
+								for (let di = -1; di <= 1; di++) {
+									for (let dj = -1; dj <= 1; dj++) {
+										if (di === 0 && dj === 0) continue;
+										const ni =
+											(i + di + currentGridSize) %
+											currentGridSize;
+										const nj =
+											(j + dj + currentGridSize) %
+											currentGridSize;
+										neighbors[mondriGrid[ni][nj]]++;
+									}
+								}
+
+								// Simplified rules
+								if (neighbors[0] > 5 && p.random() < 0.1) {
+									// White surrounded by white might spawn color
+									nextMondriGrid[i][j] =
+										Math.floor(p.random(3)) + 1;
+								} else if (
+									neighbors[1] + neighbors[2] + neighbors[3] >
+									6
+								) {
+									// Too many colored neighbors turns white
+									nextMondriGrid[i][j] = 0;
+								} else if (
+									neighbors[1] > 3 &&
+									p.random() < 0.3
+								) {
+									// Color competition - red dominates
+									nextMondriGrid[i][j] = 1;
+								} else if (
+									neighbors[2] > 3 &&
+									p.random() < 0.3
+								) {
+									// Blue dominates
+									nextMondriGrid[i][j] = 2;
+								} else if (
+									neighbors[3] > 3 &&
+									p.random() < 0.3
+								) {
+									// Yellow dominates
+									nextMondriGrid[i][j] = 3;
+								}
+
+								// Occasional line formation
+								if (
+									p.random() < 0.01 &&
+									mondriGrid[i][j] !== 0
+								) {
+									nextMondriGrid[i][j] = 4;
+								}
+							}
 						}
 
-						// Occasionally change state based on complexity parameter
-						if (
-							p.random() <
-							0.001 * normalizedParams.complexity * 0.1
-						) {
-							seed.state = Math.floor(
-								p.random(1, fgColors.length + 1)
+						// Swap grids
+						[mondriGrid, nextMondriGrid] = [
+							nextMondriGrid,
+							mondriGrid,
+						];
+					}
+
+					// Setup colors for drawing
+					const stateColors = [];
+
+					// Background color (state 0)
+					stateColors[0] =
+						appColors.background || p.color(250, 250, 250);
+
+					// Primary colors (states 1-3)
+					if (
+						appColors.foregroundColors &&
+						appColors.foregroundColors.length > 0
+					) {
+						stateColors[1] = appColors.foregroundColors[0];
+						stateColors[2] =
+							appColors.foregroundColors.length > 1
+								? appColors.foregroundColors[1]
+								: appColors.foreground;
+						stateColors[3] =
+							appColors.foregroundColors.length > 2
+								? appColors.foregroundColors[2]
+								: appColors.foreground;
+					} else {
+						// Default Mondrian-style colors
+						stateColors[1] = p.color(220, 50, 50); // Red
+						stateColors[2] = p.color(50, 50, 220); // Blue
+						stateColors[3] = p.color(220, 220, 50); // Yellow
+					}
+
+					// Line color (state 4)
+					stateColors[4] = appColors.foreground || p.color(0);
+
+					// Draw each cell
+					for (let i = 0; i < mondriGrid.length; i++) {
+						for (let j = 0; j < mondriGrid[i].length; j++) {
+							const state = mondriGrid[i][j];
+							const x1 = Math.floor(currentColPositions[i]);
+							const y1 = Math.floor(currentRowPositions[j]);
+							const x2 = Math.ceil(
+								currentColPositions[i + 1] ||
+									x1 + currentCellSize
 							);
-						}
-
-						// Power fluctuates slightly
-						seed.power *= p.random(0.995, 1.005);
-						seed.power = p.constrain(seed.power, 0.5, 1.5);
-					}
-
-					// Remove seeds that are too old and add new ones occasionally
-					particles = particles.filter((seed) => seed.age < 10);
-
-					// Occasionally add a new seed
-					if (p.random() < 0.02 * normalizedParams.density * 0.01) {
-						particles.push({
-							x: p.random(p.width),
-							y: p.random(p.height),
-							state: Math.floor(p.random(1, fgColors.length + 1)),
-							power: p.random(0.8, 1.2),
-							age: 0,
-							vx: p.random(-0.5, 0.5),
-							vy: p.random(-0.5, 0.5),
-						});
-					}
-
-					// Cap the maximum number of seeds
-					const MAX_SEEDS = Math.floor(
-						30 + normalizedParams.complexity
-					);
-					if (particles.length > MAX_SEEDS) {
-						particles.sort((a, b) => b.age - a.age); // Sort by age
-						particles = particles.slice(0, MAX_SEEDS);
-					}
-
-					// Render Voronoi pattern
-					// Resolution for rendering based on complexity (higher complexity = lower resolution = more detail)
-					const resolution = Math.floor(
-						16 - normalizedParams.complexity * 0.1
-					);
-
-					// Create an offscreen buffer for faster rendering
-					const buffer = p.createGraphics(p.width, p.height);
-					buffer.background(bgR, bgG, bgB);
-					buffer.noStroke();
-
-					// Draw Voronoi-like cells
-					for (let x = 0; x < p.width; x += resolution) {
-						for (let y = 0; y < p.height; y += resolution) {
-							let closestSeed = null;
-							let minDist = Infinity;
-
-							// Find closest seed with modified distance calculation
-							for (let seed of particles) {
-								// Use a combination of Manhattan and Euclidean distance with power influence
-								const dx = Math.abs(x - seed.x);
-								const dy = Math.abs(y - seed.y);
-
-								// Distance formula varies based on noise - creates more interesting patterns
-								let dist;
-								const noiseValue = p.noise(
-									x * 0.001,
-									y * 0.001,
-									time * 0.1
-								);
-
-								if (noiseValue < 0.33) {
-									// Manhattan distance
-									dist = (dx + dy) * (1 / seed.power);
-								} else if (noiseValue < 0.66) {
-									// Euclidean distance
-									dist =
-										Math.sqrt(dx * dx + dy * dy) *
-										(1 / seed.power);
-								} else {
-									// Chebyshev distance
-									dist = Math.max(dx, dy) * (1 / seed.power);
-								}
-
-								if (dist < minDist) {
-									minDist = dist;
-									closestSeed = seed;
-								}
-							}
-
-							if (closestSeed) {
-								// Get color based on seed state (using 1-based index)
-								const colorIdx =
-									(closestSeed.state - 1) % fgColors.length;
-								buffer.fill(fgColors[colorIdx]);
-								buffer.rect(x, y, resolution, resolution);
-							}
-						}
-					}
-
-					// Apply the buffer to the main canvas
-					p.image(buffer, 0, 0);
-
-					// Draw boundaries between different cell types
-					p.stroke(colors.background);
-					p.strokeWeight(
-						1 + (1 - normalizedParams.complexity / 100) * 2
-					); // Thicker lines for lower complexity
-
-					// Sample resolution for boundary detection
-					const sampleRes = Math.max(4, resolution);
-
-					// Helper function to get state at position
-					const getClosestState = (x: number, y: number): number => {
-						let closestSeed = null;
-						let minDist = Infinity;
-
-						for (let seed of particles) {
-							const dx = Math.abs(x - seed.x);
-							const dy = Math.abs(y - seed.y);
-							const dist = (dx + dy) * (1 / seed.power);
-
-							if (dist < minDist) {
-								minDist = dist;
-								closestSeed = seed;
-							}
-						}
-
-						return closestSeed ? closestSeed.state : 0;
-					};
-
-					// Draw boundaries only if complexity is high enough
-					if (normalizedParams.complexity > 30) {
-						for (let x = 0; x < p.width; x += sampleRes) {
-							for (let y = 0; y < p.height; y += sampleRes) {
-								const state1 = getClosestState(x, y);
-								const state2 = getClosestState(
-									x + sampleRes,
-									y
-								);
-								const state3 = getClosestState(
-									x,
-									y + sampleRes
-								);
-
-								// Draw horizontal boundary if states differ
-								if (state1 !== state2) {
-									p.line(
-										x + sampleRes / 2,
-										y,
-										x + sampleRes / 2,
-										y + sampleRes
-									);
-								}
-
-								// Draw vertical boundary if states differ
-								if (state1 !== state3) {
-									p.line(
-										x,
-										y + sampleRes / 2,
-										x + sampleRes,
-										y + sampleRes / 2
-									);
-								}
-							}
-						}
-					}
-
-					// Draw some highlight points at seed locations for visual interest
-					if (normalizedParams.complexity > 70) {
-						p.noStroke();
-						for (let seed of particles) {
-							// Get color based on seed state
-							const colorIdx = (seed.state - 1) % fgColors.length;
-							const c = fgColors[colorIdx];
-
-							// Create a brighter version for the highlight
-							p.fill(
-								p.red(c) * 1.2,
-								p.green(c) * 1.2,
-								p.blue(c) * 1.2,
-								200
+							const y2 = Math.ceil(
+								currentRowPositions[j + 1] ||
+									y1 + currentCellSize
 							);
-							p.ellipse(seed.x, seed.y, 4, 4);
+
+							p.fill(stateColors[state]);
+							p.noStroke();
+							p.rect(x1, y1, x2 - x1, y2 - y1);
 						}
 					}
 
-					drawBorder(colors.foreground);
+					// Draw grid lines
+					p.stroke(appColors.foreground);
+					p.strokeWeight(currentLineWidth);
+					p.strokeCap(p.PROJECT);
+
+					// Draw boundary lines between different states
+					for (let i = 0; i < mondriGrid.length - 1; i++) {
+						for (let j = 0; j < mondriGrid[i].length; j++) {
+							if (mondriGrid[i][j] !== mondriGrid[i + 1][j]) {
+								const x = currentColPositions[i + 1];
+								const y1 = currentRowPositions[j];
+								const y2 =
+									currentRowPositions[j + 1] ||
+									y1 + currentCellSize;
+								p.line(x, y1, x, y2);
+							}
+						}
+					}
+
+					for (let i = 0; i < mondriGrid.length; i++) {
+						for (let j = 0; j < mondriGrid[i].length - 1; j++) {
+							if (mondriGrid[i][j] !== mondriGrid[i][j + 1]) {
+								const x1 = currentColPositions[i];
+								const x2 =
+									currentColPositions[i + 1] ||
+									x1 + currentCellSize;
+								const y = currentRowPositions[j + 1];
+								p.line(x1, y, x2, y);
+							}
+						}
+					}
 				} else {
 					p.background(bgR, bgG, bgB);
-					drawBorder(colors.foreground);
+					drawBorder(appColors.foreground);
 				}
 
 				// Control animation loop - always animate in continuous mode
@@ -1712,6 +1501,54 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				if (canvasRef.current) {
 					// Update styles based on current algorithm type
 					updateCanvasStyles();
+
+					// Update algorithm-specific variables that depend on canvas dimensions
+					if (algorithm === "abstract") {
+						// Get normalized parameters from current params
+						const getNormalizedParams = () => {
+							const {
+								speed = 50,
+								complexity = 50,
+								density = 50,
+								noiseScale = 50,
+							} = params || {};
+							return {
+								speed: speed / 10,
+								complexity: complexity / 10,
+								density: density / 10,
+								noiseScale: noiseScale / 10,
+							};
+						};
+						const normalizedParams = getNormalizedParams();
+
+						// Recalculate cell size for Mondriomaton
+						currentCellSize =
+							Math.max(p.width, p.height) / currentGridSize;
+
+						// Regenerate grid positions using splitAxis
+						const nLog2 = Math.log2(currentGridSize);
+						currentRowPositions = splitAxis(
+							0,
+							p.height,
+							nLog2,
+							true,
+							normalizedParams.noiseScale,
+							normalizedParams.speed
+						);
+						currentColPositions = splitAxis(
+							0,
+							p.width,
+							nLog2,
+							false,
+							normalizedParams.noiseScale,
+							normalizedParams.speed
+						);
+						currentRowPositions.push(p.height);
+						currentColPositions.push(p.width);
+					}
+
+					// Reinitialize particles if needed
+					initializeParticles();
 				}
 			};
 
