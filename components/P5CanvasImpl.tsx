@@ -330,7 +330,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					this.stateCount = stateCount;
 					this.losesTo = {};
 
-					// Each state loses to the next state in the circle
+					// Each state loses to the next state in the circle (Rock Paper Scissors style)
+					// Follows wander.js pattern where losesTo = {R:'P', P:'S', S:'R'}
 					for (let i = 0; i < stateCount; i++) {
 						this.losesTo[i] = (i + 1) % stateCount;
 					}
@@ -449,43 +450,38 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					const nextDict = new Map();
 
 					// The threshold is how many antagonists it takes to defeat a cell
-					// Higher complexity means more resistance to change (higher threshold)
-					const threshold = Math.max(
-						1,
-						Math.min(3, Math.floor(complexity / 40) + 1)
-					);
+					// In wander.js this is set to 2 (const losesTo = {R:'P', P:'S', S:'R'})
+					const threshold = 2; // Fixed threshold to match wander.js behavior
 
 					// Update each cell based on neighbors
 					for (const cell of this.cells()) {
-						// Initialize counts for all possible states
-						const counts: Record<number, number> = {};
-						for (let i = 0; i < this.stateCount; i++) {
-							counts[i] = 0;
-						}
-
 						// Get current cell value
-						const cellValue = this.getValue(cell) || 0;
-						counts[cellValue] += 1;
+						const cellVal = this.getValue(cell) || 0;
 
 						// Count values of neighbors
-						for (const neighbor of this.neighbors(cell)) {
-							const neighValue = this.getValue(neighbor);
-							if (neighValue !== undefined) {
-								counts[neighValue] =
-									(counts[neighValue] || 0) + 1;
+						let count: Record<number, number> = {};
+						for (let i = 0; i < this.stateCount; i++) {
+							count[i] = i === cellVal ? 1 : 0; // Start by counting self
+						}
+
+						// Count neighbor states
+						for (const neigh of this.neighbors(cell)) {
+							const neighVal = this.getValue(neigh);
+							if (neighVal !== undefined) {
+								count[neighVal] = (count[neighVal] || 0) + 1;
 							}
 						}
 
-						// Determine next state using cyclic dominance rules
-						const antagonist = this.losesTo[cellValue];
+						// Determine next state using cyclic dominance rules from wander.js
+						const antagonist = this.losesTo[cellVal];
 
 						// Check if there are enough antagonists to defeat this cell
-						if (counts[antagonist] >= threshold) {
-							// Cell is defeated and changes to antagonist state
+						if (count[antagonist] >= threshold) {
+							// Cell is defeated and changes to antagonist state (like in wander.js)
 							nextDict.set(this.key(cell), antagonist);
 						} else {
 							// Cell remains unchanged
-							nextDict.set(this.key(cell), cellValue);
+							nextDict.set(this.key(cell), cellVal);
 						}
 					}
 
@@ -495,36 +491,29 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 
 				// Draw the current state of the lattice
 				display(colors: any[]): void {
-					// Cell border visibility - using similar approach to reference
-					const showBorder = false;
+					// Cell border visibility - using same approach as wander.js
+					const showBorder = false; // Mimics cell_border=false in wander.js
 
-					// Draw each cell
+					// Draw each cell - exact same logic as wander.js
 					for (const cell of this.cells()) {
-						const value = this.getValue(cell);
-						if (value === undefined) continue;
+						const cellVal = this.getValue(cell);
+						if (cellVal === undefined) continue;
 
 						// Get color for this cell type
-						const colorIndex = value % colors.length;
+						const colorIndex = cellVal % colors.length;
 						const fillColor = colors[colorIndex];
 
 						// Draw the hexagon
 						p.beginShape();
-
-						// Set fill based on cell value
 						p.fill(fillColor);
 
-						// Use the border style from reference
-						if (showBorder) {
-							p.stroke(0);
-							p.strokeWeight(1);
-						} else {
-							p.stroke(fillColor);
-							p.strokeWeight(1);
-						}
+						// Set stroke based on the cell_border flag, just like in wander.js
+						p.stroke(showBorder ? 0 : fillColor);
+						p.strokeWeight(1);
 
 						// Draw all vertices of the hexagon
-						for (const vertex of this.vertices(cell)) {
-							const { x, y } = this.cellCoords(vertex);
+						for (const vtx of this.vertices(cell)) {
+							const { x, y } = this.cellCoords(vtx);
 							p.vertex(x, y);
 						}
 
@@ -851,21 +840,46 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						time = p.random(0, 1000);
 					}
 				} else if (algorithm === "cellular") {
-					// Calculate a good cell size based on complexity
-					// Lower complexity = larger cells (easier to see the patterns)
-					const baseSize = Math.max(
-						20,
-						Math.floor(50 - normalizedParams.complexity * 0.4)
-					);
+					// Calculate a good cell size based on density
+					// In wander.js, cellSize is calculated as: cellSize = min(width,height)*grid_size
+					// where grid_size is a selected ratio (small: 1/40, medium: 1/60, large: 1/120, huge: 1/180)
+					const densityToGridSizeMap = {
+						0: 1 / 40, // Very low density = larger cells
+						25: 1 / 60, // Low density
+						50: 1 / 120, // Medium density
+						75: 1 / 180, // High density
+						100: 1 / 240, // Very high density
+					};
+
+					// Find closest density value in the map
+					const densityKeys =
+						Object.keys(densityToGridSizeMap).map(Number);
+					let closestKey = densityKeys[0];
+					for (const key of densityKeys) {
+						if (
+							Math.abs(key - params.density) <
+							Math.abs(closestKey - params.density)
+						) {
+							closestKey = key;
+						}
+					}
+
+					// Calculate cell size based on density, similar to wander.js
+					const gridSizeRatio =
+						densityToGridSizeMap[
+							closestKey as keyof typeof densityToGridSizeMap
+						];
+					const baseSize =
+						Math.min(p.width, p.height) * gridSizeRatio;
 
 					// Get the number of available colors - including background color
 					const colorsList = appColors.foregroundColors || [
 						appColors.foreground,
 					];
-					const stateCount = Math.max(3, colorsList.length + 1); // +1 to include background color
+					const stateCount = Math.min(4, colorsList.length + 1); // +1 to include background, max 4 like in wander.js
 
 					console.log(
-						`Creating Hex Lattice with ${stateCount} states based on available colors (including background)`
+						`Creating Hex Lattice with ${stateCount} states based on available colors (including background), cell size: ${baseSize}`
 					);
 
 					// Create new hex lattice with full canvas dimensions
@@ -876,14 +890,25 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						stateCount
 					);
 
-					// Initialize the lattice with balanced distribution
-					lattice.randomize(normalizedParams.density);
+					// Initialize the lattice with random states like in wander.js
+					// Initialize with a mix of states to create a balanced distribution
+					// In wander.js: for (let cell of lat.cells()) lat.setValue(cell,random(candidates))
+					// where candidates is a shuffled subset of states
+					for (const cell of lattice.cells()) {
+						// Random value between 0 and stateCount-1
+						const value = Math.floor(p.random(stateCount));
+						lattice.setValue(cell, value);
+					}
 
 					// Store the lattice as the only particle
 					particles = [lattice];
 
+					// Set frame rate based on speed like in wander.js
+					const cellFrameRate = (normalizedParams.speed - 1) * 6 + 1;
+					p.frameRate(cellFrameRate);
+
 					console.log(
-						`Initialized hex lattice with cell size ${baseSize}px`
+						`Initialized hex lattice with ${stateCount} states, cell size ${baseSize}px, frame rate: ${cellFrameRate}`
 					);
 				} else if (algorithm === "flowPlotter") {
 					particles = []; // Clear any previous image data
@@ -1091,8 +1116,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					}
 
 					// Common settings for all abstract algorithms
-					// Set frame rate lower for better performance
-					p.frameRate(10);
+					// Set higher frame rate for smoother animation
+					p.frameRate(30);
 
 					// Generate grid positions using splitAxis with reasonable depth
 					const nLog2 = Math.floor(Math.log2(currentGridSize));
@@ -1128,6 +1153,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				const [bgR, bgG, bgB] = getRGB(appColors.background);
 				const currentIsSaving = isSavingRef.current;
 
+				// Enhanced animation control system - applies to all algorithms
+				// Smoother animation based on speed parameter
+				const animationSpeed = normalizedParams.speed;
+				// Use frameCount for more consistent animation timing
+				const animationTime = p.frameCount * (animationSpeed * 0.01);
+
+				// Add subtle global movement to make all algorithms more dynamic
+				const globalNoiseOffset =
+					p.noise(animationTime * 0.1, animationTime * 0.2) * 0.5;
+
 				if (algorithm === "perlinNoise") {
 					// Only set background once at the beginning, like in reference
 					if (time === 0) {
@@ -1153,20 +1188,24 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					// Reset quadtree for efficiency
 					resetQuadtree();
 
-					// Use exact values from the reference implementation
-					const moveSpeed = 0.4; // Exact reference value for authentic motion
-					const moveScale = 800; // Exact reference value
+					// Enhanced animation - use animated moveSpeed and moveScale
+					// Vary slightly based on global animation for more fluid motion
+					const moveSpeed = 0.4 * (1 + globalNoiseOffset * 0.2); // Slightly vary speed
+					const moveScale = 800 * (1 + globalNoiseOffset * 0.1); // Slightly vary scale
 
 					// Update the time factor based on speed parameter for user control
 					if (currentIsSaving) {
 						// During saving, slightly speed up animation
 						time += normalizedParams.speed * 0.02;
 					} else {
-						// Normal continuous animation mode
-						time += normalizedParams.speed * 0.01; // Original speed
+						// Normal continuous animation mode with enhanced fluidity
+						time +=
+							normalizedParams.speed *
+							0.01 *
+							(1 + Math.sin(animationTime * 0.05) * 0.1); // Add subtle sinusoidal variation
 					}
 
-					// Update all particles - exactly like the reference implementation
+					// Update all particles - exactly like the reference implementation but with enhanced animation
 					for (const particle of particles) {
 						particle.update(moveSpeed, moveScale);
 						particle.display();
@@ -1193,45 +1232,34 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						// Include the background color as part of the palette
 						cellColors = [
 							appColors.background,
-							...appColors.foregroundColors,
+							...appColors.foregroundColors.slice(0, 3), // Limit to 3 colors like in wander.js
 						];
 					} else {
 						// Create color variations from the foreground color and include background
 						const [fr, fg, fb] = getRGB(appColors.foreground);
 
-						// Create variations and include background color
+						// Create variations similar to wander.js
 						cellColors = [
 							appColors.background, // Include background color as one of the states
 							appColors.foreground,
 							p.color(fr * 0.7, fg * 1.2, fb * 0.8), // Greenish variation
 							p.color(fr * 1.2, fg * 0.8, fb * 0.7), // Reddish variation
-							p.color(fr * 0.8, fg * 0.9, fb * 1.3), // Bluish variation
-							p.color(fr * 1.1, fg * 1.1, fb * 0.7), // Yellowish variation
 						];
 					}
 
-					// Run cellular automata simulation steps
-					const simulationSteps = currentIsSaving ? 5 : 2;
+					// Set appropriate frame rate based on speed - like in wander.js
+					// In wander.js: frameRate((speed-1)*6+1)
+					const cellFrameRate = (normalizedParams.speed - 1) * 6 + 1;
+					p.frameRate(Math.min(60, Math.max(1, cellFrameRate)));
 
-					// Update the hex lattice simulation
-					for (let step = 0; step < simulationSteps; step++) {
-						// Only update every few frames based on speed for stability
-						if (
-							step %
-								Math.max(
-									1,
-									Math.floor(10 / normalizedParams.speed)
-								) ===
-							0
-						) {
-							particles[0].update(normalizedParams.complexity);
-						}
-					}
+					// Update the hex lattice simulation - simple update every frame for smoothness
+					// Don't use frameCount checks that cause stuttering
+					particles[0].update(normalizedParams.complexity);
 
 					// Display hex lattice with the mapped colors
 					particles[0].display(cellColors);
 
-					// Draw border around the canvas - now disabled in this function
+					// Draw border around the canvas
 					drawBorder(appColors.foreground);
 				} else if (
 					algorithm === "flowPlotter" &&
@@ -1254,16 +1282,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					const originalWidth = imgData.originalWidth;
 					const originalHeight = imgData.originalHeight;
 
-					const drawLength = 250; // Animation duration, flow.js: 580. Shorter for faster ultra-dense buildup.
+					// Enhanced animation: Adjust drawLength based on speed for more control
+					const drawLength =
+						250 * (1 + (normalizedParams.speed - 50) / 100); // Range: ~187-313 based on speed
 					const noiseScaleValue =
-						(params.noiseScale / 100) * 0.002 + 0.0001; // Range: 0.0001 to 0.0021. flow.js uses 0.0001.
-					const baseStrokeLength = 15; // From flow.js
+						(params.noiseScale / 100) * 0.002 + 0.0001; // Range: 0.0001 to 0.0021
 
-					// time is managed by the main sketch loop, incremented by `time += 3` before this block in the original code.
-					// Ensure time increment is suitable. Let's make it part of this logic for clarity.
-					// If `time` is not reset to 0 on init, this needs adjustment.
-					// Assuming `time` is effectively frame count for this algorithm here.
-
+					// Improved animation with organic progression
 					if (time > drawLength && !currentIsSaving) {
 						if (p.isLooping()) {
 							p.noLoop();
@@ -1271,28 +1296,31 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						return;
 					}
 
-					// Particle count mapping for ultra-density - INCREASED EVEN MORE
-					const densityParamValue =
-						typeof params.density === "number"
-							? params.density
-							: 50; // Default to 50 if undefined
-					const densityFactor =
-						densityParamValue === 0 ? 0.1 : densityParamValue / 100; // Min factor 0.1 for 0 density, else scale 0-100 to 0-1
-					const baseUltraDensity = 2500 * densityFactor; // Max particles, e.g., 2500 for 100% density
+					// Enhanced particle count mapping with improved distribution
+					const densityParamValue = Math.max(10, params.density); // Minimum 10 for always visible effect
+					const densityFactor = densityParamValue / 100;
 
-					// Start with 60% of max density, ramp up to 100% for very quick coverage
+					// More particles with enhanced distribution
+					const baseUltraDensity =
+						2500 * densityFactor * (1 + globalNoiseOffset * 0.2);
+
+					// Better ramp-up curve for more visual interest
+					const timeProgress = time / drawLength;
+					const progressCurve = Math.pow(timeProgress, 0.7); // Modified curve for smoother ramp-up
 					const count = Math.floor(
 						p.map(
-							time,
+							progressCurve,
 							0,
-							drawLength,
-							baseUltraDensity * 0.6,
+							1,
+							baseUltraDensity * 0.5,
 							baseUltraDensity
 						)
 					);
 
-					// Stroke weight mapping like flow.js
-					const sw = p.map(time, 0, drawLength, 25, 2);
+					// Enhanced stroke weight mapping with more natural progression
+					const sw =
+						p.map(time, 0, drawLength, 25, 2) *
+						(1 + Math.sin(animationTime * 0.2) * 0.1);
 
 					for (let i = 0; i < count; i++) {
 						// Pick a random point on the processing image
@@ -1321,48 +1349,41 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						p.push();
 						p.translate(displayX, displayY);
 
+						// Enhanced noise with subtle variation
 						const n = p.noise(
-							px * noiseScaleValue,
-							py * noiseScaleValue
+							px * noiseScaleValue + animationTime * 0.01,
+							py * noiseScaleValue + animationTime * 0.01
 						);
 						p.rotate(p.radians(p.map(n, 0, 1, -180, 180)));
 
-						// Randomized stroke length, current baseStrokeLength is the minimum
-						const lengthVariation = p.random(1, 1.8); // Strokes will be 1x to 1.8x the base length
+						// More dynamic stroke length variation
+						const lengthVariation =
+							p.random(1, 1.8) *
+							(1 +
+								Math.sin(animationTime * 0.1 + px * 0.01) *
+									0.1);
 						const currentLineLength =
-							baseStrokeLength * lengthVariation;
+							(params.strokeLength || 15) * lengthVariation;
 						p.line(0, 0, currentLineLength, 0);
 
-						// Draw highlight
+						// Enhanced highlight with subtle glow
 						p.stroke(
 							Math.min(r * 3, 255),
 							Math.min(g * 3, 255),
 							Math.min(b * 3, 255),
-							p.random(50, 150)
-						); // Adjusted alpha for visibility
-						p.strokeWeight(sw * 0.8);
-						p.line(0, -sw * 0.1, currentLineLength, -sw * 0.1); // Slightly smaller offset for highlight based on thinner strokes
-						p.pop();
-					}
-
-					// Increment time/frame counter for this algorithm's progression
-					// This was `time += 3` in the previous version. Let's stick to a clear increment.
-					time += 1.5; // Moderate speed for progression
-
-					// Optional: subtle image overlay from previous implementation (flow.js doesn't have this)
-					if (time < drawLength * 0.6 && time % 7 < 1.5) {
-						// Check against time increment
-						p.push();
-						p.tint(255, 10);
-						p.image(
-							imgData.img,
-							0,
-							0,
-							originalWidth,
-							originalHeight
+							p.random(50, 150) *
+								(1 + Math.sin(animationTime * 0.2) * 0.2)
 						);
+						p.strokeWeight(sw * 0.8);
+						p.line(0, -sw * 0.1, currentLineLength, -sw * 0.1);
 						p.pop();
 					}
+
+					// Enhanced time increment with smoother progression
+					time +=
+						1.5 *
+						(1 + (normalizedParams.speed - 50) / 100) *
+						(1 + Math.sin(animationTime * 0.05) * 0.1);
 				} else if (algorithm === "abstract") {
 					// Clear background
 					p.background(appColors.background);
@@ -1410,10 +1431,20 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					// Line color (state 4)
 					stateColors[4] = appColors.foreground || p.color(0);
 
+					// Enhanced animation: Variable update rates based on speed parameter
+					// Use more frequent updates for smoother transitions
+					const updateInterval = Math.max(
+						1,
+						Math.floor(6 / normalizedParams.speed)
+					);
+
 					// Different update and drawing logic based on abstract sub-algorithm
 					if (abstractSubAlgorithm === "mondriomaton") {
-						// Update based on frame count for Mondriomaton
-						if (p.frameCount % 6 === 0 || currentIsSaving) {
+						// Enhanced update based on frame count and speed for Mondriomaton
+						if (
+							p.frameCount % updateInterval === 0 ||
+							currentIsSaving
+						) {
 							// Copy current grid to next grid
 							for (let i = 0; i < mondriGrid.length; i++) {
 								for (let j = 0; j < mondriGrid[i].length; j++) {
@@ -1421,7 +1452,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 								}
 							}
 
-							// Apply De Stijl rules (closer to original mondri.js)
+							// Apply De Stijl rules with enhanced animation parameters
 							for (let i = 0; i < mondriGrid.length; i++) {
 								for (let j = 0; j < mondriGrid[i].length; j++) {
 									// Skip line cells
@@ -1442,7 +1473,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 										}
 									}
 
-									// De Stijl rules (closer to original mondri.js)
+									// De Stijl rules with enhanced dynamics
 									const currentState = mondriGrid[i][j];
 
 									// Rock-Paper-Scissors relationship between colors
@@ -1452,11 +1483,31 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 										3: 2, // Yellow beats Blue
 									};
 
-									// Constants for rules (from original mondri.js with some adjustments)
-									const MIN_BEATEN = 3; // Original: 5
-									const MAX_BEATEN = 5; // Original: 10
-									const MIN_WHITE = 6; // Original: 14
-									const MAX_SAME_COLOR = 6; // Original: 12
+									// Dynamic rule constants based on speed
+									const MIN_BEATEN = Math.max(
+										2,
+										Math.floor(
+											4 - normalizedParams.speed * 0.02
+										)
+									);
+									const MAX_BEATEN = Math.min(
+										7,
+										Math.floor(
+											4 + normalizedParams.speed * 0.04
+										)
+									);
+									const MIN_WHITE = Math.max(
+										5,
+										Math.floor(
+											7 - normalizedParams.speed * 0.04
+										)
+									);
+									const MAX_SAME_COLOR = Math.min(
+										8,
+										Math.floor(
+											5 + normalizedParams.speed * 0.04
+										)
+									);
 
 									// If white cell with enough white neighbors, spawn least common color
 									if (
@@ -1517,9 +1568,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 											neighbors[currentState] >=
 											MAX_SAME_COLOR
 										) {
-											// 30% chance to become black, otherwise white
+											// Speed-influenced chance to become black
 											nextMondriGrid[i][j] =
-												p.random() < 0.3 ? 4 : 0;
+												p.random() <
+												0.3 *
+													(1 +
+														(normalizedParams.speed -
+															50) /
+															150)
+													? 4
+													: 0;
 										}
 									}
 									// Black cells can turn to a color that beats surrounding colors
@@ -1535,9 +1593,15 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 										}
 									}
 
-									// Random mutations for more dynamic patterns (occasional)
-									if (p.random() < 0.005) {
-										// Low probability of random color change
+									// Enhanced random mutations based on speed parameter
+									if (
+										p.random() <
+										0.005 *
+											(1 +
+												(normalizedParams.speed - 50) /
+													100)
+									) {
+										// Low probability of random color change with speed influence
 										nextMondriGrid[i][j] = Math.floor(
 											p.random(MONDRI_STATES)
 										);
@@ -1552,8 +1616,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 							];
 						}
 					} else if (abstractSubAlgorithm === "generativeMondrian") {
-						// Generative Mondrian uses a different approach - recursive splitting
-						if (p.frameCount % 20 === 0 || currentIsSaving) {
+						// Dynamic update rate for Generative Mondrian
+						if (
+							p.frameCount %
+								Math.max(
+									10,
+									Math.floor(
+										30 - normalizedParams.speed * 0.4
+									)
+								) ===
+								0 ||
+							currentIsSaving
+						) {
 							// Occasionally reorganize grid to create new compositions
 							let randomRow = Math.floor(
 								p.random(mondriGrid.length)
@@ -1562,11 +1636,17 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 								p.random(mondriGrid[0].length)
 							);
 
-							// Create a rectangular region
-							const regionWidth = Math.floor(p.random(2, 5));
-							const regionHeight = Math.floor(p.random(2, 5));
+							// Enhanced variation in region size based on complexity and speed
+							const regionSizeVariation =
+								1 + (normalizedParams.complexity - 50) / 100;
+							const regionWidth = Math.floor(
+								p.random(2, 4 + regionSizeVariation)
+							);
+							const regionHeight = Math.floor(
+								p.random(2, 4 + regionSizeVariation)
+							);
 
-							// Fill region with a single color
+							// Dynamic color selection influenced by noise for more organic compositions
 							const fillColor = Math.floor(p.random(0, 4)); // 0-3 (no black)
 
 							// Apply the fill
@@ -1580,8 +1660,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 								}
 							}
 
-							// Add some border lines
-							if (p.random() < 0.3) {
+							// Add dynamic border lines influenced by speed and global noise
+							if (
+								p.random() <
+								0.3 * (1 + (normalizedParams.speed - 50) / 150)
+							) {
 								for (let i = 0; i < regionWidth; i++) {
 									const x =
 										(randomRow + i) % mondriGrid.length;
@@ -1590,7 +1673,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 								}
 							}
 
-							if (p.random() < 0.3) {
+							if (
+								p.random() <
+								0.3 * (1 + (normalizedParams.speed - 50) / 150)
+							) {
 								for (let j = 0; j < regionHeight; j++) {
 									const x = randomRow % mondriGrid.length;
 									const y =
@@ -1600,8 +1686,16 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 							}
 						}
 					} else if (abstractSubAlgorithm === "circuitBoard") {
-						// Circuit Board algorithm - create flowing paths
-						if (p.frameCount % 8 === 0 || currentIsSaving) {
+						// Dynamic update rate for Circuit Board
+						if (
+							p.frameCount %
+								Math.max(
+									2,
+									Math.floor(6 - normalizedParams.speed * 0.1)
+								) ===
+								0 ||
+							currentIsSaving
+						) {
 							// Update circuit paths
 
 							// Copy current grid to next grid
@@ -1611,13 +1705,23 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 								}
 							}
 
-							// Create/extend circuit paths
+							// Enhanced dynamics for path extension and mutation
+							const pathExtendProb =
+								0.2 * (1 + (normalizedParams.speed - 50) / 200);
+							const junctionProb =
+								0.05 *
+								(1 + (normalizedParams.complexity - 50) / 150);
+							const newPathProb =
+								0.0005 *
+								(1 + (normalizedParams.density - 50) / 100);
+
+							// Create/extend circuit paths with dynamic parameters
 							for (let i = 0; i < mondriGrid.length; i++) {
 								for (let j = 0; j < mondriGrid[i].length; j++) {
 									// If this is a path
 									if (mondriGrid[i][j] > 0) {
-										// Extend paths with some probability
-										if (p.random() < 0.2) {
+										// Extend paths with speed-influenced probability
+										if (p.random() < pathExtendProb) {
 											// Pick a random direction
 											const dir = Math.floor(p.random(4));
 											let ni = i,
@@ -1644,15 +1748,22 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 													(j + 1) %
 													mondriGrid[0].length;
 
-											// Create a path in that direction
+											// Create a path in that direction with color variations
 											if (mondriGrid[ni][nj] === 0) {
-												nextMondriGrid[ni][nj] =
-													mondriGrid[i][j];
+												// Occasionally mutate color for visual interest
+												if (p.random() < 0.1) {
+													nextMondriGrid[ni][nj] =
+														1 +
+														Math.floor(p.random(3)); // Random 1-3
+												} else {
+													nextMondriGrid[ni][nj] =
+														mondriGrid[i][j];
+												}
 											}
 										}
 
-										// Occasionally create a junction (branch)
-										if (p.random() < 0.05) {
+										// Occasionally create a junction (branch) with complexity influence
+										if (p.random() < junctionProb) {
 											// Pick a random neighbor
 											const neighbors = [];
 											for (let di = -1; di <= 1; di++) {
@@ -1695,16 +1806,23 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 															)
 														)
 													];
-												nextMondriGrid[ni][nj] =
-													mondriGrid[i][j];
+												// Occasionally create a new branch with different color
+												if (p.random() < 0.2) {
+													nextMondriGrid[ni][nj] =
+														1 +
+														Math.floor(p.random(3)); // 1-3
+												} else {
+													nextMondriGrid[ni][nj] =
+														mondriGrid[i][j];
+												}
 											}
 										}
 									}
 
-									// Occasionally start a new path
+									// Occasionally start a new path with density influence
 									else if (
 										mondriGrid[i][j] === 0 &&
-										p.random() < 0.0005
+										p.random() < newPathProb
 									) {
 										nextMondriGrid[i][j] = Math.floor(
 											p.random(1, 4)
@@ -1721,27 +1839,41 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						}
 					}
 
-					// Common settings for all abstract algorithms
-					// Set frame rate lower for better performance
-					p.frameRate(10);
+					// Enhanced common settings with dynamic frame rate based on speed
+					// Higher frame rate for smoother animation
+					p.frameRate(
+						Math.max(
+							30,
+							Math.min(60, 30 + normalizedParams.speed / 2)
+						)
+					);
 
-					// Generate grid positions using splitAxis with reasonable depth
+					// Generate dynamic grid positions with animated noise
+					// Always regenerate positions for smoother movement
+					const dynamicNoiseScale =
+						normalizedParams.noiseScale *
+						(1 + Math.sin(animationTime * 0.1) * 0.05);
+					const dynamicSpeed =
+						normalizedParams.speed *
+						(1 + Math.sin(animationTime * 0.05) * 0.03);
+
+					// Regenerate every frame for complete smoothness
 					const nLog2 = Math.floor(Math.log2(currentGridSize));
 					currentRowPositions = splitAxis(
 						0,
 						p.height,
 						nLog2,
 						true,
-						normalizedParams.noiseScale,
-						normalizedParams.speed
+						dynamicNoiseScale,
+						dynamicSpeed
 					);
 					currentColPositions = splitAxis(
 						0,
 						p.width,
 						nLog2,
 						false,
-						normalizedParams.noiseScale,
-						normalizedParams.speed
+						dynamicNoiseScale,
+						dynamicSpeed
 					);
 					currentRowPositions.push(p.height);
 					currentColPositions.push(p.width);
@@ -1814,9 +1946,32 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					drawBorder(appColors.foreground);
 				}
 
-				// Control animation loop - always animate in continuous mode
-				// Use appropriate frame rate
-				p.frameRate(currentIsSaving ? 60 : 30); // Higher framerate during saving for smooth capture
+				// Enhanced dynamic frame rate control at the end
+				const algorithmSpecificRate =
+					algorithm === "abstract"
+						? Math.max(
+								30,
+								Math.min(60, 30 + normalizedParams.speed / 2)
+						  )
+						: currentIsSaving
+						? 60
+						: 60;
+				p.frameRate(algorithmSpecificRate);
+			};
+
+			// Add mouseClicked function to match wander.js behavior
+			p.mouseClicked = () => {
+				if (
+					algorithm === "cellular" &&
+					particles.length > 0 &&
+					particles[0] instanceof HexLattice
+				) {
+					// In wander.js, clicking advances the simulation by one step
+					const params = getNormalizedParams();
+					particles[0].update(params.complexity);
+					return false; // Prevent default
+				}
+				return true; // Allow default for other algorithms
 			};
 
 			// Draw a border around the canvas - now disabled as per user request
