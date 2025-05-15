@@ -1026,17 +1026,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						mondriGrid[i] = [];
 						nextMondriGrid[i] = [];
 						for (let j = 0; j < currentGridSize; j++) {
-							// Mostly white with some colored cells
-							mondriGrid[i][j] =
-								p.random() < 0.15
-									? Math.floor(p.random(3)) + 1
-									: 0;
+							// Use distribution closer to original mondri.js
+							// Initially, create a more balanced distribution of colors with fewer black (4) cells
+							// STATES 0: white background, 1-3: colors, 4: black
+							mondriGrid[i][j] = Math.floor(
+								p.random(MONDRI_STATES - 1)
+							); // 0-3 (no black/4 initially)
 							nextMondriGrid[i][j] = mondriGrid[i][j];
 						}
 					}
 
 					// Set frame rate lower for better performance
-					p.frameRate(2);
+					p.frameRate(10);
 
 					// Generate grid positions using splitAxis with reasonable depth
 					const nLog2 = Math.floor(Math.log2(currentGridSize));
@@ -1320,7 +1321,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					}
 
 					// Update based on frame count - less frequent updates for better performance
-					if (p.frameCount % 30 === 0 || currentIsSaving) {
+					if (p.frameCount % 6 === 0 || currentIsSaving) {
 						// Copy current grid to next grid
 						for (let i = 0; i < mondriGrid.length; i++) {
 							for (let j = 0; j < mondriGrid[i].length; j++) {
@@ -1349,43 +1350,104 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 									}
 								}
 
-								// Simplified rules
-								if (neighbors[0] > 5 && p.random() < 0.1) {
-									// White surrounded by white might spawn color
-									nextMondriGrid[i][j] =
-										Math.floor(p.random(3)) + 1;
-								} else if (
-									neighbors[1] + neighbors[2] + neighbors[3] >
-									6
+								// De Stijl rules (closer to original mondri.js)
+								const currentState = mondriGrid[i][j];
+
+								// Rock-Paper-Scissors relationship between colors
+								const BEATS: Record<number, number> = {
+									1: 3, // Blue beats Red
+									2: 1, // Red beats Yellow
+									3: 2, // Yellow beats Blue
+								};
+
+								// Constants for rules (from original mondri.js with some adjustments)
+								const MIN_BEATEN = 3; // Original: 5
+								const MAX_BEATEN = 5; // Original: 10
+								const MIN_WHITE = 6; // Original: 14
+								const MAX_SAME_COLOR = 6; // Original: 12
+
+								// If white cell with enough white neighbors, spawn least common color
+								if (
+									currentState === 0 &&
+									neighbors[0] > MIN_WHITE
 								) {
-									// Too many colored neighbors turns white
-									nextMondriGrid[i][j] = 0;
-								} else if (
-									neighbors[1] > 3 &&
-									p.random() < 0.3
+									let minCount = Infinity;
+									let minColor = 1;
+									for (let c = 1; c <= 3; c++) {
+										if (neighbors[c] < minCount) {
+											minCount = neighbors[c];
+											minColor = c;
+										}
+									}
+									nextMondriGrid[i][j] = minColor;
+								}
+								// Check if white cell is surrounded by enough of a color
+								else if (currentState === 0) {
+									for (let c = 1; c <= 3; c++) {
+										if (neighbors[c] > MAX_BEATEN) {
+											nextMondriGrid[i][j] = c;
+											break;
+										}
+									}
+								}
+								// For colored cells (1-3), check if beaten by another color
+								else if (
+									currentState >= 1 &&
+									currentState <= 3
 								) {
-									// Color competition - red dominates
-									nextMondriGrid[i][j] = 1;
-								} else if (
-									neighbors[2] > 3 &&
-									p.random() < 0.3
-								) {
-									// Blue dominates
-									nextMondriGrid[i][j] = 2;
-								} else if (
-									neighbors[3] > 3 &&
-									p.random() < 0.3
-								) {
-									// Yellow dominates
-									nextMondriGrid[i][j] = 3;
+									// Find which color beats this one
+									let beatenByCount = 0;
+									let beatingColor = null;
+
+									for (let c = 1; c <= 3; c++) {
+										if (
+											BEATS[c] === currentState &&
+											neighbors[c] > beatenByCount
+										) {
+											beatenByCount = neighbors[c];
+											beatingColor = c;
+										}
+									}
+
+									// If too many beating neighbors, turn white
+									if (beatenByCount > MAX_BEATEN) {
+										nextMondriGrid[i][j] = 0;
+									}
+									// If enough beating neighbors, convert to that color
+									else if (
+										beatingColor !== null &&
+										beatenByCount >= MIN_BEATEN
+									) {
+										nextMondriGrid[i][j] = beatingColor;
+									}
+									// If too many of same color nearby, turn black (sparingly) or white
+									else if (
+										neighbors[currentState] >=
+										MAX_SAME_COLOR
+									) {
+										// 30% chance to become black, otherwise white
+										nextMondriGrid[i][j] =
+											p.random() < 0.3 ? 4 : 0;
+									}
+								}
+								// Black cells can turn to a color that beats surrounding colors
+								else if (currentState === 4) {
+									for (let c = 1; c <= 3; c++) {
+										if (neighbors[c] > 4) {
+											const attacker = BEATS[c];
+											if (attacker)
+												nextMondriGrid[i][j] = attacker;
+											break;
+										}
+									}
 								}
 
-								// Occasional line formation
-								if (
-									p.random() < 0.01 &&
-									mondriGrid[i][j] !== 0
-								) {
-									nextMondriGrid[i][j] = 4;
+								// Random mutations for more dynamic patterns (occasional)
+								if (p.random() < 0.005) {
+									// Low probability of random color change
+									nextMondriGrid[i][j] = Math.floor(
+										p.random(MONDRI_STATES)
+									);
 								}
 							}
 						}
@@ -1450,13 +1512,15 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					}
 
 					// Draw grid lines
-					p.stroke(appColors.foreground);
+					p.stroke(stateColors[4]); // Use black/line color
 					p.strokeWeight(currentLineWidth);
-					p.strokeCap(p.PROJECT);
+					p.strokeCap(p.PROJECT); // Match mondri.js PROJECT cap style
 
-					// Draw boundary lines between different states
+					// Draw boundary lines between different states (like in original mondri.js)
+					// First draw vertical lines between cells with different states
 					for (let i = 0; i < mondriGrid.length - 1; i++) {
 						for (let j = 0; j < mondriGrid[i].length; j++) {
+							// Only draw line if states are different
 							if (mondriGrid[i][j] !== mondriGrid[i + 1][j]) {
 								const x = currentColPositions[i + 1];
 								const y1 = currentRowPositions[j];
@@ -1468,8 +1532,10 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						}
 					}
 
+					// Then draw horizontal lines between cells with different states
 					for (let i = 0; i < mondriGrid.length; i++) {
 						for (let j = 0; j < mondriGrid[i].length - 1; j++) {
+							// Only draw line if states are different
 							if (mondriGrid[i][j] !== mondriGrid[i][j + 1]) {
 								const x1 = currentColPositions[i];
 								const x2 =
