@@ -412,40 +412,149 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				// Update the lattice based on rock-paper-scissors rules - adapted from wander.js
 				update(complexity: number): void {
 					// Create a new dictionary for the next state
-					const nextDict = new Map();
+					const nextDict = new Map<number, number>();
 
-					// For each cell, apply the rules
-					for (let cell of this.cells()) {
-						let count: Record<number, number> = {};
+					// --- Define Game of Life parameters based on complexity (1-11) ---
+					// complexity 1 = low chaos (more stable), 11 = high chaos (very dynamic)
 
-						// Initialize count for all states
-						for (let i = 0; i < this.stateCount; i++) {
-							count[i] = 0;
-						}
+					// Birth: Neighbors required for a dead cell to become alive
+					const currentBirthAliveReq = Math.max(
+						2,
+						Math.round(3.0 - (complexity - 1) * (1.0 / 10.0))
+					); // Range: 3 (low C) down to 2 (high C)
 
-						// Get current cell value and count it
-						let cellVal = this.getValue(cell);
-						if (cellVal === undefined) cellVal = 0;
-						count[cellVal] += 1; // Count self
+					// Survival Min: Min alive neighbors for an alive cell to survive
+					const currentSurvivalMinAliveReq = Math.max(
+						1,
+						Math.round(2.0 - (complexity - 1) * (1.0 / 10.0))
+					); // Range: 2 (low C) down to 1 (high C)
 
-						// Count each neighbor value
-						for (let neigh of this.neighbors(cell)) {
-							let neighVal = this.getValue(neigh);
-							if (neighVal !== undefined) {
-								count[neighVal] += 1;
+					// Survival Max: Max alive neighbors for an alive cell to survive (dies if more)
+					const currentSurvivalMaxAliveReq = Math.max(
+						currentSurvivalMinAliveReq, // Ensure max is at least min
+						Math.round(4.0 - (complexity - 1) * (2.0 / 10.0)) // Range: 4 (low C) down to 2 (high C)
+					);
+
+					// Probability of randomly changing state if it survives (more chaos with higher complexity)
+					const chaoticStateChangeProbOnSurvive =
+						((complexity - 1) / 10.0) * 0.3; // Range: 0% (low C) to 30% (high C)
+
+					// For each cell, apply the new Game of Life rules
+					for (const cell of this.cells()) {
+						const cellKey = this.key(cell);
+						let currentValue = this.getValue(cell);
+						if (currentValue === undefined) currentValue = 0; // Default to dead (state 0)
+
+						let aliveNeighborCount = 0;
+						const neighborAliveStatesCount: Record<number, number> =
+							{};
+
+						for (const neigh of this.neighbors(cell)) {
+							const neighVal = this.getValue(neigh);
+							if (neighVal !== undefined && neighVal > 0) {
+								// neighVal > 0 means neighbor is alive
+								aliveNeighborCount++;
+								if (this.stateCount > 1) {
+									// Only count if more than just dead/alive states
+									neighborAliveStatesCount[neighVal] =
+										(neighborAliveStatesCount[neighVal] ||
+											0) + 1;
+								}
 							}
 						}
 
-						// Get the state that beats this cell
-						const antagonist = this.losesTo[cellVal];
+						let nextState = currentValue;
 
-						// If there are >= 2 antagonist neighbors, the cell changes state
-						// This is similar to wander.js: if (count[antagonist] >= 2)
-						if (count[antagonist] >= 2) {
-							nextDict.set(this.key(cell), antagonist);
+						if (currentValue === 0) {
+							// Dead cell
+							if (aliveNeighborCount === currentBirthAliveReq) {
+								// Birth: change to an "alive" state
+								if (this.stateCount <= 1) {
+									// Only state 0 (dead) or fewer states defined
+									nextState = 0; // Stays dead as no 'alive' states to transition to
+								} else {
+									// stateCount >= 2, means there is at least state 1 (alive)
+									let dominantAliveNeighborState = -1;
+									let maxAliveCount = 0;
+									let tiedDominant = false;
+
+									for (const stateStr of Object.keys(
+										neighborAliveStatesCount
+									)) {
+										const state = parseInt(stateStr);
+										const count =
+											neighborAliveStatesCount[state];
+										if (count > maxAliveCount) {
+											maxAliveCount = count;
+											dominantAliveNeighborState = state;
+											tiedDominant = false;
+										} else if (count === maxAliveCount) {
+											tiedDominant = true;
+										}
+									}
+
+									if (
+										dominantAliveNeighborState !== -1 &&
+										!tiedDominant &&
+										Math.random() > 0.3
+									) {
+										nextState = dominantAliveNeighborState;
+									} else {
+										// Pick a random "alive" state (from 1 to stateCount-1)
+										const numActualAliveStates =
+											this.stateCount - 1;
+										nextState =
+											Math.floor(
+												Math.random() *
+													numActualAliveStates
+											) + 1;
+									}
+								}
+							}
 						} else {
-							nextDict.set(this.key(cell), cellVal);
+							// Alive cell (currentValue > 0)
+							if (
+								aliveNeighborCount <
+									currentSurvivalMinAliveReq ||
+								aliveNeighborCount > currentSurvivalMaxAliveReq
+							) {
+								nextState = 0; // Dies by underpopulation or overpopulation
+							} else {
+								// Survives. Potentially change state for chaos if multiple alive states exist.
+								if (
+									this.stateCount > 2 &&
+									Math.random() <
+										chaoticStateChangeProbOnSurvive
+								) {
+									// stateCount > 2 means there are at least two distinct alive states (e.g., 1 and 2), plus state 0.
+									let newStateCandidate;
+									const numActualAliveStates =
+										this.stateCount - 1;
+
+									if (numActualAliveStates <= 1) {
+										// Only one type of alive state (state 1) or no alive states
+										newStateCandidate =
+											numActualAliveStates === 1
+												? 1
+												: currentValue; // Can only be state 1 or remain same
+									} else {
+										// Multiple types of alive states, try to pick a different one
+										do {
+											newStateCandidate =
+												Math.floor(
+													Math.random() *
+														numActualAliveStates
+												) + 1;
+										} while (
+											newStateCandidate === currentValue
+										); // Ensure it's different
+									}
+									nextState = newStateCandidate;
+								}
+								// Else, it just survives as its current state (nextState is already currentValue)
+							}
 						}
+						nextDict.set(cellKey, nextState);
 					}
 
 					// Swap dictionaries
