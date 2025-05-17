@@ -671,14 +671,19 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						canvasRef.current.style.alignItems = "center";
 					}
 				} else {
-					// For standard algorithms, use the original simpler approach that had better performance
+					// For standard algorithms, center the canvas in the viewport
 					canvasElement.style.position = "absolute";
-					canvasElement.style.transformOrigin = "top left";
-					canvasElement.style.transform = `scale(${
-						VIEWPORT_WIDTH / MASTER_CANVAS_SIZE
-					})`;
-					canvasElement.style.left = "0";
-					canvasElement.style.top = "0";
+					canvasElement.style.left = "50%";
+					canvasElement.style.top = "50%";
+
+					// Scale the canvas to fit the viewport and center it
+					const scale = VIEWPORT_WIDTH / MASTER_CANVAS_SIZE;
+					canvasElement.style.transformOrigin = "center center";
+					canvasElement.style.transform = `translate(-50%, -50%) scale(${scale})`;
+
+					// Ensure margins are cleared as translate now handles centering
+					canvasElement.style.marginLeft = "";
+					canvasElement.style.marginTop = "";
 
 					// Make the container show only the visible portion
 					if (canvasRef.current) {
