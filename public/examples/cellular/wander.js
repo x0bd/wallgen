@@ -1,10 +1,14 @@
-
-OPC.toggle ('paused', false);
-OPC.toggle ('cell_border', false);
-OPC.slider ('speed', 10,1,10,1);
-OPC.select('grid_size', {"medium": 1/60, "small": 1/40, "large": 1/120, "huge":1/180});
+OPC.toggle("paused", false);
+OPC.toggle("cell_border", false);
+OPC.slider("speed", 10, 1, 10, 1);
+OPC.select("grid_size", {
+	medium: 1 / 60,
+	small: 1 / 40,
+	large: 1 / 120,
+	huge: 1 / 180,
+});
 let myPalettes = [
-	['#E97F62', '#AAFC8F', '#8399E9'], // Original
+	["#E97F62", "#AAFC8F", "#8399E9"], // Original
 	["#ea0f3b", "#0191a1", "#94E0ab"], // Original
 	["#c3dfe0", "#bcd979", "#9dad6f"], // Original
 	["#4464ad", "#a4b0f5", "#f58f29"], // Original
@@ -43,79 +47,94 @@ let myPalettes = [
 	["#FCC7B1", "#9CAFB7", "#4F7CAC"], // Warm blush, subtle gray, bold blue
 	["#F4E9CD", "#A4828D", "#5C677D"], // Soft beige, mauve, steel blue
 	["#EFE2BA", "#899878", "#6F4C5B"], // Warm cream, olive green, dusky rose
-	["#FECEAB", "#9E768F", "#64594B"]  // Pastel peach, muted purple, earthy brown
+	["#FECEAB", "#9E768F", "#64594B"], // Pastel peach, muted purple, earthy brown
 ];
 
-
-OPC.palette('palette', myPalettes);
-OPC.button ('new_seed', 'new seed');
+OPC.palette("palette", myPalettes);
+OPC.button("new_seed", "new seed");
 
 function parameterChanged(variableName, newValue) {
-	if (variableName == 'speed') frameRate((speed-1)*6+1);
-	if (variableName == 'grid_size') {
+	if (variableName == "speed") frameRate((speed - 1) * 6 + 1);
+	if (variableName == "grid_size") {
 		createLattices();
 		initLattice();
 	}
 }
 
 function buttonPressed(variableName) {
-	if (variableName == 'new_seed') {
+	if (variableName == "new_seed") {
 		initLattice();
 	}
 }
 
-
 class HexLattice {
-	constructor (width,height,cellSize) {
-		Object.assign(this,{width,height,cellSize});
-		this.u = createVector(cellSize*Math.sqrt(3)/2,cellSize/2);
-		this.v = createVector(0,cellSize);
+	constructor(width, height, cellSize) {
+		Object.assign(this, { width, height, cellSize });
+		this.u = createVector((cellSize * Math.sqrt(3)) / 2, cellSize / 2);
+		this.v = createVector(0, cellSize);
 		this.o = this.v.copy();
 		this.o.x += this.u.x;
-		const rowSize = ceil(this.width/(this.u.x*2))
-		this.key  = ([i,j]) => i+rowSize*j;
+		const rowSize = ceil(this.width / (this.u.x * 2));
+		this.key = ([i, j]) => i + rowSize * j;
 		this.dict = new Map();
 	}
-	getValue([i,j]) {
-		let k = this.key([i,j]);
-		return this.dict.get(k)
+	getValue([i, j]) {
+		let k = this.key([i, j]);
+		return this.dict.get(k);
 	}
-	setValue([i,j], val) {
-		let k = this.key([i,j]);
-		this.dict.set(k,val)
+	setValue([i, j], val) {
+		let k = this.key([i, j]);
+		this.dict.set(k, val);
 	}
 	*cells() {
-		let nx1 = floor(this.width/(this.u.x*2));
-		let nx2 = floor((this.width-this.u.x)/(this.u.x*2));
-		let ny = floor(height/(this.v.y*3));
-		for (let j = 0; j<ny; j++) {
+		let nx1 = floor(this.width / (this.u.x * 2));
+		let nx2 = floor((this.width - this.u.x) / (this.u.x * 2));
+		let ny = floor(height / (this.v.y * 3));
+		for (let j = 0; j < ny; j++) {
 			for (let k = 0; k < nx1; k++) {
-				yield [2*k,3*j-k]
+				yield [2 * k, 3 * j - k];
 			}
-			if ((3*j+3)*this.cellSize < height)
+			if ((3 * j + 3) * this.cellSize < height)
 				for (let k = 0; k < nx2; k++) {
-					yield [2*k+1,3*j+1-k]
+					yield [2 * k + 1, 3 * j + 1 - k];
 				}
 		}
-		if (height % (this.v.y*3) >= this.v.y*2) {
+		if (height % (this.v.y * 3) >= this.v.y * 2) {
 			for (let k = 0; k < nx1; k++) {
-				yield [2*k,3*ny-k]
+				yield [2 * k, 3 * ny - k];
 			}
 		}
 	}
-	cellCoords([i,j]) {
-		return this.o.copy().add(this.u.copy().mult(i)).add(this.v.copy().mult(j));
+	cellCoords([i, j]) {
+		return this.o
+			.copy()
+			.add(this.u.copy().mult(i))
+			.add(this.v.copy().mult(j));
 	}
-	*vertices([i,j]) {
-		yield* [[i+1,j], [i,j+1], [i-1,j+1], [i-1,j], [i,j-1], [i+1,j-1]];
-	} 
-	*neighbors([i,j]) {
-		yield*([[i+2,j-1],[i+1,j+1],[i-1,j+2], [i-2,j+1],[i-1,j-1], [i+1,j-2]])
+	*vertices([i, j]) {
+		yield* [
+			[i + 1, j],
+			[i, j + 1],
+			[i - 1, j + 1],
+			[i - 1, j],
+			[i, j - 1],
+			[i + 1, j - 1],
+		];
+	}
+	*neighbors([i, j]) {
+		yield* [
+			[i + 2, j - 1],
+			[i + 1, j + 1],
+			[i - 1, j + 2],
+			[i - 2, j + 1],
+			[i - 1, j - 1],
+			[i + 1, j - 2],
+		];
 	}
 }
 
 let lat, nextLat;
-const losesTo = {R:'P', P: 'S', S:'R'};
+const losesTo = { R: "P", P: "S", S: "R" };
 let cellSize;
 
 function setup() {
@@ -127,30 +146,37 @@ function setup() {
 
 function draw() {
 	background(100);
-	drawLattice ()
-	if (!paused) evolveLattice()
+	drawLattice();
+	if (!paused) evolveLattice();
 }
 
 function mouseClicked() {
-	evolveLattice()
+	evolveLattice();
 }
 
 function createLattices() {
 	let cellRatio = grid_size;
-  cellSize = min(width,height)*cellRatio;
-	lat = new HexLattice(width,height,cellSize);
+	cellSize = min(width, height) * cellRatio;
+	lat = new HexLattice(width, height, cellSize);
 	nextLat = new HexLattice(width, height, cellSize);
 }
 
 function initLattice() {
-	let candidates = shuffle(random([[0,1,2],[0,0,1,2],[0,0,0,1,1,2],[0,0,0,0,1,1,1,2],[0,0,1,1,2]])).map(i=>'RPS'[i])
-	for (let cell of lat.cells()) lat.setValue(cell,random(candidates));
-	
+	let candidates = shuffle(
+		random([
+			[0, 1, 2],
+			[0, 0, 1, 2],
+			[0, 0, 0, 1, 1, 2],
+			[0, 0, 0, 0, 1, 1, 1, 2],
+			[0, 0, 1, 1, 2],
+		])
+	).map((i) => "RPS"[i]);
+	for (let cell of lat.cells()) lat.setValue(cell, random(candidates));
 }
 
 function evolveLattice() {
 	for (let cell of lat.cells()) {
-		let count = {R:0,P:0,S:0};
+		let count = { R: 0, P: 0, S: 0 };
 		let cellVal = lat.getValue(cell);
 		count[cellVal] = 1;
 		for (let neigh of lat.neighbors(cell)) {
@@ -158,22 +184,23 @@ function evolveLattice() {
 			if (neighVal) count[neighVal]++;
 		}
 		let antagonist = losesTo[cellVal];
-		if (count[antagonist] >= 2) nextLat.setValue(cell,antagonist);
-		else nextLat.setValue(cell,cellVal)
+		if (count[antagonist] >= 2) nextLat.setValue(cell, antagonist);
+		else nextLat.setValue(cell, cellVal);
 	}
-	[lat,nextLat] = [nextLat,lat]
+	[lat, nextLat] = [nextLat, lat];
 }
 
-function drawLattice () {
-	let colors = {R:palette[0], P:palette[1],S:palette[2]};
+function drawLattice() {
+	let colors = { R: palette[0], P: palette[1], S: palette[2] };
 	for (let cell of lat.cells()) {
 		beginShape();
-		let c = colors[lat.getValue(cell)]
-		fill(c); stroke(cell_border? 0 : c);
+		let c = colors[lat.getValue(cell)];
+		fill(c);
+		stroke(cell_border ? 0 : c);
 		for (let vtx of lat.vertices(cell)) {
-			let {x,y} = lat.cellCoords(vtx);
-			vertex(x,y)
+			let { x, y } = lat.cellCoords(vtx);
+			vertex(x, y);
 		}
-		endShape(CLOSE)
+		endShape(CLOSE);
 	}
 }
