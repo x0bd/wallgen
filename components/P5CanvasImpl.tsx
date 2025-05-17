@@ -297,20 +297,18 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				u: any; // Vector for hex grid
 				v: any; // Vector for hex grid
 				o: any; // Origin offset
-				dict: Map<number, number> = new Map();
-				stateCount: number = 3; // Will be dynamically set based on palette length
-				losesTo: Record<number, number> = {}; // Dynamic relationships
+				dict: Map<number, string> = new Map(); // Store "R", "P", "S" as strings
+				// Removed stateCount and losesTo from constructor, will be fixed for RPS
 
 				constructor(
 					width: number,
 					height: number,
-					cellSize: number,
-					stateCount: number = 3
+					cellSize: number
+					// stateCount is no longer needed here
 				) {
 					this.width = width;
 					this.height = height;
 					this.cellSize = cellSize;
-					this.stateCount = stateCount;
 
 					// Create vectors for hex grid calculation - exactly like wander.js
 					this.u = p.createVector(
@@ -321,10 +319,7 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					this.o = this.v.copy();
 					this.o.add(p.createVector(this.u.x, 0));
 
-					// Set up the relationships - each state loses to the next one in a cycle
-					for (let i = 0; i < stateCount; i++) {
-						this.losesTo[i] = (i + 1) % stateCount;
-					}
+					// losesTo is fixed for RPS, will be used in update()
 				}
 
 				// Key function to map 2D coordinates to 1D for dictionary lookup - exactly like wander.js
@@ -334,13 +329,13 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				}
 
 				// Get value at hex coordinate
-				getValue(coords: [number, number]): number | undefined {
+				getValue(coords: [number, number]): string | undefined {
 					const k = this.key(coords);
 					return this.dict.get(k);
 				}
 
 				// Set value at hex coordinate
-				setValue(coords: [number, number], val: number): void {
+				setValue(coords: [number, number], val: string): void {
 					const k = this.key(coords);
 					this.dict.set(k, val);
 				}
@@ -409,185 +404,73 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					];
 				}
 
-				// Update the lattice based on rock-paper-scissors rules - adapted from wander.js
-				update(complexity: number): void {
-					// Create a new dictionary for the next state
-					const nextDict = new Map<number, number>();
+				// Update method to match wander.js evolveLattice
+				update(): void {
+					// Complexity parameter removed
+					const nextDict = new Map<number, string>();
+					const losesTo: Record<string, string> = {
+						R: "P",
+						P: "S",
+						S: "R",
+					};
 
-					// --- Define Game of Life parameters based on complexity (1-11) ---
-					// complexity 1 = low chaos (more stable), 11 = high chaos (very dynamic)
-
-					// Birth: Neighbors required for a dead cell to become alive
-					const currentBirthAliveReq = Math.max(
-						2,
-						Math.round(3.0 - (complexity - 1) * (1.0 / 10.0))
-					); // Range: 3 (low C) down to 2 (high C)
-
-					// Survival Min: Min alive neighbors for an alive cell to survive
-					const currentSurvivalMinAliveReq = Math.max(
-						1,
-						Math.round(2.0 - (complexity - 1) * (1.0 / 10.0))
-					); // Range: 2 (low C) down to 1 (high C)
-
-					// Survival Max: Max alive neighbors for an alive cell to survive (dies if more)
-					const currentSurvivalMaxAliveReq = Math.max(
-						currentSurvivalMinAliveReq, // Ensure max is at least min
-						Math.round(4.0 - (complexity - 1) * (2.0 / 10.0)) // Range: 4 (low C) down to 2 (high C)
-					);
-
-					// Probability of randomly changing state if it survives (more chaos with higher complexity)
-					const chaoticStateChangeProbOnSurvive =
-						((complexity - 1) / 10.0) * 0.3; // Range: 0% (low C) to 30% (high C)
-
-					// For each cell, apply the new Game of Life rules
 					for (const cell of this.cells()) {
 						const cellKey = this.key(cell);
-						let currentValue = this.getValue(cell);
-						if (currentValue === undefined) currentValue = 0; // Default to dead (state 0)
+						const cellVal = this.getValue(cell);
 
-						let aliveNeighborCount = 0;
-						const neighborAliveStatesCount: Record<number, number> =
-							{};
+						if (cellVal === undefined) continue;
 
+						// Count neighbor states, matching wander.js logic
+						let neighborCounts: Record<string, number> = {
+							R: 0,
+							P: 0,
+							S: 0,
+						};
 						for (const neigh of this.neighbors(cell)) {
 							const neighVal = this.getValue(neigh);
-							if (neighVal !== undefined && neighVal > 0) {
-								// neighVal > 0 means neighbor is alive
-								aliveNeighborCount++;
-								if (this.stateCount > 1) {
-									// Only count if more than just dead/alive states
-									neighborAliveStatesCount[neighVal] =
-										(neighborAliveStatesCount[neighVal] ||
-											0) + 1;
-								}
+							if (neighVal) {
+								// Ensure neighbor has a value
+								neighborCounts[neighVal] =
+									(neighborCounts[neighVal] || 0) + 1;
 							}
 						}
 
-						let nextState = currentValue;
-
-						if (currentValue === 0) {
-							// Dead cell
-							if (aliveNeighborCount === currentBirthAliveReq) {
-								// Birth: change to an "alive" state
-								if (this.stateCount <= 1) {
-									// Only state 0 (dead) or fewer states defined
-									nextState = 0; // Stays dead as no 'alive' states to transition to
-								} else {
-									// stateCount >= 2, means there is at least state 1 (alive)
-									let dominantAliveNeighborState = -1;
-									let maxAliveCount = 0;
-									let tiedDominant = false;
-
-									for (const stateStr of Object.keys(
-										neighborAliveStatesCount
-									)) {
-										const state = parseInt(stateStr);
-										const count =
-											neighborAliveStatesCount[state];
-										if (count > maxAliveCount) {
-											maxAliveCount = count;
-											dominantAliveNeighborState = state;
-											tiedDominant = false;
-										} else if (count === maxAliveCount) {
-											tiedDominant = true;
-										}
-									}
-
-									if (
-										dominantAliveNeighborState !== -1 &&
-										!tiedDominant &&
-										Math.random() > 0.3
-									) {
-										nextState = dominantAliveNeighborState;
-									} else {
-										// Pick a random "alive" state (from 1 to stateCount-1)
-										const numActualAliveStates =
-											this.stateCount - 1;
-										nextState =
-											Math.floor(
-												Math.random() *
-													numActualAliveStates
-											) + 1;
-									}
-								}
-							}
+						const antagonistState = losesTo[cellVal];
+						if (neighborCounts[antagonistState] >= 2) {
+							nextDict.set(cellKey, antagonistState);
 						} else {
-							// Alive cell (currentValue > 0)
-							if (
-								aliveNeighborCount <
-									currentSurvivalMinAliveReq ||
-								aliveNeighborCount > currentSurvivalMaxAliveReq
-							) {
-								nextState = 0; // Dies by underpopulation or overpopulation
-							} else {
-								// Survives. Potentially change state for chaos if multiple alive states exist.
-								if (
-									this.stateCount > 2 &&
-									Math.random() <
-										chaoticStateChangeProbOnSurvive
-								) {
-									// stateCount > 2 means there are at least two distinct alive states (e.g., 1 and 2), plus state 0.
-									let newStateCandidate;
-									const numActualAliveStates =
-										this.stateCount - 1;
-
-									if (numActualAliveStates <= 1) {
-										// Only one type of alive state (state 1) or no alive states
-										newStateCandidate =
-											numActualAliveStates === 1
-												? 1
-												: currentValue; // Can only be state 1 or remain same
-									} else {
-										// Multiple types of alive states, try to pick a different one
-										do {
-											newStateCandidate =
-												Math.floor(
-													Math.random() *
-														numActualAliveStates
-												) + 1;
-										} while (
-											newStateCandidate === currentValue
-										); // Ensure it's different
-									}
-									nextState = newStateCandidate;
-								}
-								// Else, it just survives as its current state (nextState is already currentValue)
-							}
+							nextDict.set(cellKey, cellVal);
 						}
-						nextDict.set(cellKey, nextState);
 					}
-
-					// Swap dictionaries
 					this.dict = nextDict;
 				}
 
 				// Draw the current state of the lattice - adapted from wander.js
-				display(colors: any[]): void {
-					// Match wander.js cell_border flag
-					const showBorder = false;
+				display(colors: { R: any; P: any; S: any }): void {
+					// Expects an object mapping R,P,S to p5.colors
+					const showBorder = false; // OPC.toggle("cell_border", false);
 
-					// For each cell
 					for (let cell of this.cells()) {
-						// Get the cell's value
 						let cellVal = this.getValue(cell);
-						if (cellVal === undefined) continue;
+						if (
+							cellVal === undefined ||
+							!colors[cellVal as keyof typeof colors]
+						) {
+							continue;
+						}
 
-						// Get color based on state, using modulo to handle any number of colors
-						const colorIndex = cellVal % colors.length;
-						const fillColor = colors[colorIndex];
+						const fillColor =
+							colors[cellVal as keyof typeof colors];
 
-						// Begin shape drawing
 						p.beginShape();
 						p.fill(fillColor);
 						p.stroke(showBorder ? 0 : fillColor);
 						p.strokeWeight(1);
 
-						// Draw each vertex of the hexagon
 						for (let vtx of this.vertices(cell)) {
 							const { x, y } = this.cellCoords(vtx);
 							p.vertex(x, y);
 						}
-
 						p.endShape(p.CLOSE);
 					}
 				}
@@ -916,99 +799,40 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						time = p.random(0, 1000);
 					}
 				} else if (algorithm === "cellular") {
-					// Calculate cell size exactly like in wander.js
-					const cellSize = Math.min(p.width, p.height) * (1 / 60); // Medium grid size
+					const cellRatio = 1 / 60; // Medium grid size from wander.js OPC default
+					const cellSize = Math.min(p.width, p.height) * cellRatio;
 
-					// Get the number of available foreground colors
-					const palettedColors = appColors.foregroundColors || [
-						appColors.foreground,
+					const lattice = new HexLattice(p.width, p.height, cellSize);
+
+					const rpsStates = ["R", "P", "S"];
+					const candidatePatternsIndices = [
+						[0, 1, 2],
+						[0, 0, 1, 2],
+						[0, 0, 0, 1, 1, 2],
+						[0, 0, 0, 0, 1, 1, 1, 2],
+						[0, 0, 1, 1, 2],
 					];
-					const stateCount = palettedColors.length; // Use all available colors
-
-					console.log(
-						`Creating cellular automaton with ${stateCount} states`
+					const randomPatternIndices = p.random(
+						candidatePatternsIndices
+					);
+					const shuffledIndices = p.shuffle(randomPatternIndices); // p.shuffle returns a new array
+					const candidates = shuffledIndices.map(
+						(i: number) => rpsStates[i]
 					);
 
-					// Create hex lattice with dynamic state count
-					const lattice = new HexLattice(
-						p.width,
-						p.height,
-						cellSize,
-						stateCount
-					);
-
-					// Create balanced distribution of states
-					const distributions = [];
-
-					// Build distribution array based on palette size
-					if (stateCount <= 3) {
-						// Use wander.js-like distributions for small palettes
-						distributions.push(
-							Array.from({ length: stateCount }, (_, i) => i), // Equal distribution
-							[
-								0,
-								0,
-								...Array.from(
-									{ length: stateCount - 1 },
-									(_, i) => i + 1
-								),
-							], // More of first color
-							[
-								0,
-								0,
-								0,
-								...Array.from(
-									{ length: stateCount - 1 },
-									(_, i) => i + 1
-								),
-							] // More of first color
-						);
-					} else {
-						// For larger palettes, create more balanced distributions
-						distributions.push(
-							Array.from({ length: stateCount }, (_, i) => i), // Equal distribution
-							// Slight bias to first color
-							[
-								0,
-								0,
-								...Array.from(
-									{ length: stateCount - 1 },
-									(_, i) => i + 1
-								),
-							],
-							// Create rippling effect with weighted distribution across all colors
-							Array.from(
-								{ length: stateCount * 2 },
-								(_, i) => i % stateCount
-							)
-						);
-					}
-
-					// Choose a random distribution
-					const selectedDist =
-						distributions[
-							Math.floor(p.random(distributions.length))
-						];
-
-					// Initialize cells with the selected distribution
 					for (const cell of lattice.cells()) {
-						// Pick a random value from the distribution
-						const valIndex = Math.floor(
-							p.random(selectedDist.length)
-						);
-						const value = selectedDist[valIndex];
-						lattice.setValue(cell, value);
+						lattice.setValue(cell, p.random(candidates));
 					}
 
-					// Store the lattice as the only particle
 					particles = [lattice];
 
-					// Set frame rate exactly like wander.js: frameRate((speed-1)*6+1)
-					const cellFrameRate = (normalizedParams.speed - 1) * 6 + 1;
+					// Map params.speed (0-100 UI slider) to OPC speed (1-10 integer for formula)
+					const opcSpeed = Math.round((params.speed / 100) * 9) + 1;
+					const cellFrameRate = (opcSpeed - 1) * 6 + 1;
 					p.frameRate(cellFrameRate);
 
 					console.log(
-						`Initialized hex lattice with frame rate: ${cellFrameRate}`
+						`Initialized wander.js style hex lattice. OPC Speed: ${opcSpeed}, FrameRate: ${cellFrameRate}`
 					);
 				} else if (algorithm === "flowPlotter") {
 					particles = []; // Clear any previous image data
@@ -1322,31 +1146,31 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					// Clear background for cellular automata
 					p.background(bgR, bgG, bgB);
 
-					// Create color palette using ALL available colors
-					let cellColors: any[] = [];
+					let rpsColors: { R: any; P: any; S: any } = {
+						R: p.color("#E97F62"), // Default wander.js R
+						P: p.color("#AAFC8F"), // Default wander.js P
+						S: p.color("#8399E9"), // Default wander.js S
+					};
 
-					if (
-						appColors.foregroundColors &&
-						appColors.foregroundColors.length > 0
-					) {
-						// Use ALL available foreground colors
-						cellColors = [...appColors.foregroundColors];
-					} else {
-						// Use wander.js original palette style colors if no custom colors
-						cellColors = [
-							p.color("#E97F62"), // Original from wander.js
-							p.color("#AAFC8F"), // Original from wander.js
-							p.color("#8399E9"), // Original from wander.js
-						];
+					if (appColors.foregroundColors) {
+						if (appColors.foregroundColors.length >= 1)
+							rpsColors.R = appColors.foregroundColors[0];
+						if (appColors.foregroundColors.length >= 2)
+							rpsColors.P = appColors.foregroundColors[1];
+						// If only 2 colors, S will use default. If 1 color, P & S use default.
+						if (appColors.foregroundColors.length >= 3)
+							rpsColors.S = appColors.foregroundColors[2];
 					}
 
-					// Set frame rate exactly like wander.js: frameRate((speed-1)*6+1)
-					const cellFrameRate = (normalizedParams.speed - 1) * 6 + 1;
+					// Ensure frame rate matches wander.js logic based on current speed param
+					// normalizedParams.speed is 0-5. We need to map to OPC 1-10.
+					const opcSpeed =
+						Math.round(normalizedParams.speed * (9 / 5)) + 1; // Maps 0-5 to 1-10
+					const cellFrameRate = (opcSpeed - 1) * 6 + 1;
 					p.frameRate(cellFrameRate);
 
-					// Update and display
-					particles[0].update(normalizedParams.complexity);
-					particles[0].display(cellColors);
+					particles[0].update();
+					particles[0].display(rpsColors);
 
 					// Draw border around the canvas
 					drawBorder(appColors.foreground);
@@ -2055,11 +1879,11 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					particles.length > 0 &&
 					particles[0] instanceof HexLattice
 				) {
-					// In wander.js, clicking advances the simulation by one step
-					particles[0].update(getNormalizedParams().complexity);
-					return false; // Prevent default
+					particles[0].update();
+					p.redraw();
+					return false;
 				}
-				return true; // Allow default for other algorithms
+				return true;
 			};
 
 			// Draw a border around the canvas - now disabled as per user request
