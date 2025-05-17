@@ -289,193 +289,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				}
 			}
 
-			// Cellular Automata Implementation (Hexagonal Rock-Paper-Scissors)
-			class HexLattice {
-				width: number = 0;
-				height: number = 0;
-				cellSize: number = 0;
-				u: any; // Vector for hex grid
-				v: any; // Vector for hex grid
-				o: any; // Origin offset
-				dict: Map<number, string> = new Map(); // Store "R", "P", "S" as strings
-				// Removed stateCount and losesTo from constructor, will be fixed for RPS
-
-				constructor(
-					width: number,
-					height: number,
-					cellSize: number
-					// stateCount is no longer needed here
-				) {
-					this.width = width;
-					this.height = height;
-					this.cellSize = cellSize;
-
-					// Create vectors for hex grid calculation - exactly like wander.js
-					this.u = p.createVector(
-						(cellSize * Math.sqrt(3)) / 2,
-						cellSize / 2
-					);
-					this.v = p.createVector(0, cellSize);
-					this.o = this.v.copy();
-					this.o.add(p.createVector(this.u.x, 0));
-
-					// losesTo is fixed for RPS, will be used in update()
-				}
-
-				// Key function to map 2D coordinates to 1D for dictionary lookup - exactly like wander.js
-				key([i, j]: [number, number]): number {
-					const rowSize = Math.ceil(this.width / (this.u.x * 2));
-					return i + rowSize * j;
-				}
-
-				// Get value at hex coordinate
-				getValue(coords: [number, number]): string | undefined {
-					const k = this.key(coords);
-					return this.dict.get(k);
-				}
-
-				// Set value at hex coordinate
-				setValue(coords: [number, number], val: string): void {
-					const k = this.key(coords);
-					this.dict.set(k, val);
-				}
-
-				// Generate all valid hex cell coordinates within the bounds - exactly like wander.js
-				*cells(): Generator<[number, number]> {
-					const nx1 = Math.floor(this.width / (this.u.x * 2));
-					const nx2 = Math.floor(
-						(this.width - this.u.x) / (this.u.x * 2)
-					);
-					const ny = Math.floor(this.height / (this.v.y * 3));
-
-					// Generate coordinates exactly as in wander.js
-					for (let j = 0; j < ny; j++) {
-						for (let k = 0; k < nx1; k++) {
-							yield [2 * k, 3 * j - k];
-						}
-						if ((3 * j + 3) * this.cellSize < this.height) {
-							for (let k = 0; k < nx2; k++) {
-								yield [2 * k + 1, 3 * j + 1 - k];
-							}
-						}
-					}
-
-					if (this.height % (this.v.y * 3) >= this.v.y * 2) {
-						for (let k = 0; k < nx1; k++) {
-							yield [2 * k, 3 * ny - k];
-						}
-					}
-				}
-
-				// Convert hex coordinates to screen coordinates - exactly like wander.js
-				cellCoords([i, j]: [number, number]): any {
-					const result = this.o
-						.copy()
-						.add(this.u.copy().mult(i))
-						.add(this.v.copy().mult(j));
-					return result;
-				}
-
-				// Get the 6 vertices of a hex at the given coordinates - exactly like wander.js
-				*vertices([i, j]: [number, number]): Generator<
-					[number, number]
-				> {
-					yield* [
-						[i + 1, j],
-						[i, j + 1],
-						[i - 1, j + 1],
-						[i - 1, j],
-						[i, j - 1],
-						[i + 1, j - 1],
-					];
-				}
-
-				// Get the 6 neighboring cells of a hex - exactly like wander.js
-				*neighbors([i, j]: [number, number]): Generator<
-					[number, number]
-				> {
-					yield* [
-						[i + 2, j - 1],
-						[i + 1, j + 1],
-						[i - 1, j + 2],
-						[i - 2, j + 1],
-						[i - 1, j - 1],
-						[i + 1, j - 2],
-					];
-				}
-
-				// Update method to match wander.js evolveLattice
-				update(): void {
-					// Complexity parameter removed
-					const nextDict = new Map<number, string>();
-					const losesTo: Record<string, string> = {
-						R: "P",
-						P: "S",
-						S: "R",
-					};
-
-					for (const cell of this.cells()) {
-						const cellKey = this.key(cell);
-						const cellVal = this.getValue(cell);
-
-						if (cellVal === undefined) continue;
-
-						// Count neighbor states, matching wander.js logic
-						let neighborCounts: Record<string, number> = {
-							R: 0,
-							P: 0,
-							S: 0,
-						};
-						for (const neigh of this.neighbors(cell)) {
-							const neighVal = this.getValue(neigh);
-							if (neighVal) {
-								// Ensure neighbor has a value
-								neighborCounts[neighVal] =
-									(neighborCounts[neighVal] || 0) + 1;
-							}
-						}
-
-						const antagonistState = losesTo[cellVal];
-						if (neighborCounts[antagonistState] >= 2) {
-							nextDict.set(cellKey, antagonistState);
-						} else {
-							nextDict.set(cellKey, cellVal);
-						}
-					}
-					this.dict = nextDict;
-				}
-
-				// Draw the current state of the lattice - adapted from wander.js
-				display(colors: { R: any; P: any; S: any }): void {
-					// Expects an object mapping R,P,S to p5.colors
-					const showBorder = false; // OPC.toggle("cell_border", false);
-
-					for (let cell of this.cells()) {
-						let cellVal = this.getValue(cell);
-						if (
-							cellVal === undefined ||
-							!colors[cellVal as keyof typeof colors]
-						) {
-							continue;
-						}
-
-						const fillColor =
-							colors[cellVal as keyof typeof colors];
-
-						p.beginShape();
-						p.fill(fillColor);
-						p.stroke(showBorder ? 0 : fillColor);
-						p.strokeWeight(1);
-
-						for (let vtx of this.vertices(cell)) {
-							const { x, y } = this.cellCoords(vtx);
-							p.vertex(x, y);
-						}
-						p.endShape(p.CLOSE);
-					}
-				}
-			}
-
 			// FlowImage Implementation
 			class FlowImageParticle {
 				x: number;
@@ -798,42 +611,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 						// Set a random starting time offset
 						time = p.random(0, 1000);
 					}
-				} else if (algorithm === "cellular") {
-					const cellRatio = 1 / 60; // Medium grid size from wander.js OPC default
-					const cellSize = Math.min(p.width, p.height) * cellRatio;
-
-					const lattice = new HexLattice(p.width, p.height, cellSize);
-
-					const rpsStates = ["R", "P", "S"];
-					const candidatePatternsIndices = [
-						[0, 1, 2],
-						[0, 0, 1, 2],
-						[0, 0, 0, 1, 1, 2],
-						[0, 0, 0, 0, 1, 1, 1, 2],
-						[0, 0, 1, 1, 2],
-					];
-					const randomPatternIndices = p.random(
-						candidatePatternsIndices
-					);
-					const shuffledIndices = p.shuffle(randomPatternIndices); // p.shuffle returns a new array
-					const candidates = shuffledIndices.map(
-						(i: number) => rpsStates[i]
-					);
-
-					for (const cell of lattice.cells()) {
-						lattice.setValue(cell, p.random(candidates));
-					}
-
-					particles = [lattice];
-
-					// Map params.speed (0-100 UI slider) to OPC speed (1-10 integer for formula)
-					const opcSpeed = Math.round((params.speed / 100) * 9) + 1;
-					const cellFrameRate = (opcSpeed - 1) * 6 + 1;
-					p.frameRate(cellFrameRate);
-
-					console.log(
-						`Initialized wander.js style hex lattice. OPC Speed: ${opcSpeed}, FrameRate: ${cellFrameRate}`
-					);
 				} else if (algorithm === "flowPlotter") {
 					particles = []; // Clear any previous image data
 
@@ -1137,42 +914,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					}
 
 					// Draw border after particles
-					drawBorder(appColors.foreground);
-				} else if (
-					algorithm === "cellular" &&
-					particles.length > 0 &&
-					particles[0] instanceof HexLattice
-				) {
-					// Clear background for cellular automata
-					p.background(bgR, bgG, bgB);
-
-					let rpsColors: { R: any; P: any; S: any } = {
-						R: p.color("#E97F62"), // Default wander.js R
-						P: p.color("#AAFC8F"), // Default wander.js P
-						S: p.color("#8399E9"), // Default wander.js S
-					};
-
-					if (appColors.foregroundColors) {
-						if (appColors.foregroundColors.length >= 1)
-							rpsColors.R = appColors.foregroundColors[0];
-						if (appColors.foregroundColors.length >= 2)
-							rpsColors.P = appColors.foregroundColors[1];
-						// If only 2 colors, S will use default. If 1 color, P & S use default.
-						if (appColors.foregroundColors.length >= 3)
-							rpsColors.S = appColors.foregroundColors[2];
-					}
-
-					// Ensure frame rate matches wander.js logic based on current speed param
-					// normalizedParams.speed is 0-5. We need to map to OPC 1-10.
-					const opcSpeed =
-						Math.round(normalizedParams.speed * (9 / 5)) + 1; // Maps 0-5 to 1-10
-					const cellFrameRate = (opcSpeed - 1) * 6 + 1;
-					p.frameRate(cellFrameRate);
-
-					particles[0].update();
-					particles[0].display(rpsColors);
-
-					// Draw border around the canvas
 					drawBorder(appColors.foreground);
 				} else if (
 					algorithm === "flowPlotter" &&
@@ -1872,17 +1613,8 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 				p.frameRate(algorithmSpecificRate);
 			};
 
-			// Add mouseClicked function to match wander.js behavior
+			// Add mouseClicked function to exactly match wander.js behavior
 			p.mouseClicked = () => {
-				if (
-					algorithm === "cellular" &&
-					particles.length > 0 &&
-					particles[0] instanceof HexLattice
-				) {
-					particles[0].update();
-					p.redraw();
-					return false;
-				}
 				return true;
 			};
 

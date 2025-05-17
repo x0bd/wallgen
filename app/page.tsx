@@ -217,8 +217,6 @@ export default function Home() {
 							<span className="text-xs font-mono uppercase tracking-widest text-black/40 dark:text-white/40">
 								{algorithm === "perlinNoise"
 									? "Perlin Noise"
-									: algorithm === "cellular"
-									? "Cellular Automata"
 									: algorithm === "flowPlotter"
 									? "Flow Plotter"
 									: "Abstract"}
@@ -290,30 +288,6 @@ export default function Home() {
 									}`}
 								/>
 								<span>PERLIN NOISE</span>
-							</motion.button>
-
-							<motion.button
-								onClick={() => setAlgorithm("cellular")}
-								disabled={isSaving}
-								whileHover={{ scale: 1.02, y: -4 }}
-								whileTap={{ scale: 0.98 }}
-								className={`neo-brutal group px-4 py-3 text-xs font-mono 
-                  ${
-						algorithm === "cellular"
-							? "bg-black text-white dark:bg-white dark:text-black"
-							: "hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-					} 
-                  transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
-							>
-								<Hexagon
-									size={14}
-									className={`${
-										algorithm === "cellular"
-											? "animate-pulse"
-											: "group-hover:animate-pulse"
-									}`}
-								/>
-								<span>CELLULAR</span>
 							</motion.button>
 
 							<motion.button
