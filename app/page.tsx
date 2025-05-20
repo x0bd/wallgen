@@ -268,101 +268,50 @@ export default function Home() {
 						</div>
 
 						<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-							<motion.button
+							<button
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono transition-all ${
+									algorithm === "perlinNoise"
+										? "bg-black text-white dark:bg-white dark:text-black shadow-md"
+										: "hover:bg-black/5 dark:hover:bg-white/5"
+								}`}
 								onClick={() => setAlgorithm("perlinNoise")}
-								disabled={isSaving}
-								whileHover={{ scale: 1.02, y: -4 }}
-								whileTap={{ scale: 0.98 }}
-								className={`neo-brutal group px-4 py-3 text-xs font-mono 
-                  ${
-						algorithm === "perlinNoise"
-							? "bg-black text-white dark:bg-white dark:text-black"
-							: "hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-					} 
-                  transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
 							>
-								<Waves
-									size={14}
-									className={`${
-										algorithm === "perlinNoise"
-											? "animate-pulse"
-											: "group-hover:animate-pulse"
-									}`}
-								/>
-								<span>PERLIN NOISE</span>
-							</motion.button>
-
-							<motion.button
+								<Waves size={14} />
+								Perlin Noise
+							</button>
+							<button
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono transition-all ${
+									algorithm === "flowPlotter"
+										? "bg-black text-white dark:bg-white dark:text-black shadow-md"
+										: "hover:bg-black/5 dark:hover:bg-white/5"
+								}`}
 								onClick={() => setAlgorithm("flowPlotter")}
-								disabled={isSaving}
-								whileHover={{ scale: 1.02, y: -4 }}
-								whileTap={{ scale: 0.98 }}
-								className={`neo-brutal group px-4 py-3 text-xs font-mono 
-                  ${
-						algorithm === "flowPlotter"
-							? "bg-black text-white dark:bg-white dark:text-black"
-							: "hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-					} 
-                  transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
 							>
-								<Image
-									size={14}
-									className={`${
-										algorithm === "flowPlotter"
-											? "animate-pulse"
-											: "group-hover:animate-pulse"
-									}`}
-								/>
-								<span>FLOW PLOTTER</span>
-							</motion.button>
-
-							<motion.button
+								<Wind size={14} />
+								Flow Plotter
+							</button>
+							<button
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono transition-all ${
+									algorithm === "gradient"
+										? "bg-black text-white dark:bg-white dark:text-black shadow-md"
+										: "hover:bg-black/5 dark:hover:bg-white/5"
+								}`}
 								onClick={() => setAlgorithm("gradient")}
-								disabled={isSaving}
-								whileHover={{ scale: 1.02, y: -4 }}
-								whileTap={{ scale: 0.98 }}
-								className={`neo-brutal group px-4 py-3 text-xs font-mono 
-                  ${
-						algorithm === "gradient"
-							? "bg-black text-white dark:bg-white dark:text-black"
-							: "hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-					} 
-                  transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
 							>
-								<Palette
-									size={14}
-									className={`${
-										algorithm === "gradient"
-											? "animate-pulse"
-											: "group-hover:animate-pulse"
-									}`}
-								/>
-								<span>GRADIENT</span>
-							</motion.button>
-
-							<motion.button
+								<Palette size={14} />
+								Gradient
+							</button>
+							<button
+								className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono transition-all ${
+									algorithm === "abstract"
+										? "bg-black text-white dark:bg-white dark:text-black shadow-md"
+										: "hover:bg-black/5 dark:hover:bg-white/5"
+								}`}
 								onClick={() => setAlgorithm("abstract")}
-								disabled={isSaving}
-								whileHover={{ scale: 1.02, y: -4 }}
-								whileTap={{ scale: 0.98 }}
-								className={`neo-brutal group px-4 py-3 text-xs font-mono 
-                  ${
-						algorithm === "abstract"
-							? "bg-black text-white dark:bg-white dark:text-black"
-							: "hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-					} 
-                  transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none`}
 							>
-								<CircleDashed
-									size={14}
-									className={`${
-										algorithm === "abstract"
-											? "animate-pulse"
-											: "group-hover:animate-pulse"
-									}`}
-								/>
-								<span>ABSTRACT</span>
-							</motion.button>
+								<CircleDashed size={14} />
+								Abstract
+							</button>
 						</div>
 					</motion.div>
 				</div>

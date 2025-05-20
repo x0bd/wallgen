@@ -37,7 +37,6 @@ export interface AlgorithmParams {
 	strokeThickness?: number;
 	imageUrl?: string;
 	abstractAlgorithm?: AbstractSubAlgorithmType; // New param for abstract sub-algorithm selection
-	noiseStrength?: number; // Added for gradient shader
 }
 
 // Define the color options
