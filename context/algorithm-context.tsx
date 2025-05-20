@@ -15,7 +15,8 @@ export type AlgorithmType =
 	| "perlinNoise"
 	| "cellular"
 	| "abstract"
-	| "flowPlotter";
+	| "flowPlotter"
+	| "gradient";
 
 // Define abstract sub-algorithm types
 export type AbstractSubAlgorithmType =
@@ -36,6 +37,7 @@ export interface AlgorithmParams {
 	strokeThickness?: number;
 	imageUrl?: string;
 	abstractAlgorithm?: AbstractSubAlgorithmType; // New param for abstract sub-algorithm selection
+	noiseStrength?: number; // Added for gradient shader
 }
 
 // Define the color options
