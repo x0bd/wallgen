@@ -2,11 +2,10 @@
 
 import React, { useRef, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
-// import { useAlgorithm } from "@/context/algorithm-context"; // Temporarily unused for debugging
+import { useAlgorithm } from "@/context/algorithm-context";
 
-// Super basic vertex shader - just pass UV coordinates
+// Simple pass-through vertex shader
 const vertexShader = `
 varying vec2 vUv;
 
@@ -16,51 +15,107 @@ void main() {
 }
 `;
 
-// Direct implementation of basic.glsl with THREE's coordinate system
+// Fragment shader
 const fragmentShader = `
-varying vec2 vUv;
+  precision mediump float;
 
-#define SRGB_TO_LINEAR(c) pow((c), vec3(2.2))
-#define LINEAR_TO_SRGB(c) pow((c), vec3(1.0 / 2.2))
-#define SRGB(r, g, b) SRGB_TO_LINEAR(vec3(float(r), float(g), float(b)) / 255.0)
+  uniform vec3 uColor1;
+  uniform vec3 uColor2;
+  uniform float uTime;
+  uniform vec2 uResolution;
 
-const vec3 COLOR0 = SRGB(255, 0, 114); // Pink from basic.glsl
-const vec3 COLOR1 = SRGB(197, 255, 80); // Green from basic.glsl
+  varying vec2 vUv;
 
-// Gradient noise from basic.glsl
-float gradientNoise(in vec2 uv) {
-  const vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
-  return fract(magic.z * fract(dot(uv, magic.xy)));
-}
+  void main() {
+    vec2 uv = vUv;
+    vec2 q = uv - vec2(0.5, 0.0);
 
-void main() {
-  // In React Three Fiber, vUv is already in 0-1 range for the canvas
-  // Simple gradient based on x-position
-  float t = smoothstep(0.0, 1.0, vUv.x);
-  
-  // Interpolate between colors in linear space
-  vec3 color = mix(COLOR0, COLOR1, t);
-  
-  // Convert from linear to sRGB
-  color = LINEAR_TO_SRGB(color);
-  
-  // Add gradient noise to reduce banding
-  color += (1.0/255.0) * gradientNoise(vUv * 1000.0) - (0.5/255.0);
-  
-  gl_FragColor = vec4(color, 1.0);
-}
+    vec3 col = mix(uColor1, uColor2, uv.y);
+
+    float r = 0.8 + 0.25 * sin(uTime) * 2.0 * cos(atan(q.x, q.y) * 0.0 + 10.0 * q.x + 1.0);
+    r += cos(0.5 * uTime * (q.y * 0.17)) * 0.1;
+
+    col += smoothstep(r + 0.1, sin(r) * 0.5 + 0.1 + 0.1, length(q));
+
+    col *= fract(uv.y);
+
+    gl_FragColor = vec4(col, 1.0);
+  }
 `;
 
-// A simple full-screen quad for the shader
-function GradientMaterial() {
-	// Create a full-screen quad that's pre-transformed
+// The shader mesh that renders our gradient
+function GradientShaderMesh() {
+	const meshRef = useRef<THREE.Mesh>(null);
+	const materialRef = useRef<THREE.ShaderMaterial>(null);
+	const { size } = useThree();
+	const { getCurrentColors, params } = useAlgorithm();
+
+	// Get colors from the algorithm context
+	const getShaderColors = () => {
+		const colors = getCurrentColors();
+		const foregroundColors = colors.foregroundColors || [];
+
+		// Convert hex colors to THREE.Color objects
+		const color1 = new THREE.Color(
+			foregroundColors[0] || colors.foreground || "#cc1ab3"
+		);
+		const color2 = new THREE.Color(
+			foregroundColors[1] || colors.background || "#6633ff"
+		);
+
+		return {
+			color1: [color1.r, color1.g, color1.b],
+			color2: [color2.r, color2.g, color2.b],
+		};
+	};
+
+	// Animation loop
+	useFrame(({ clock }) => {
+		if (materialRef.current) {
+			const speedFactor = (params.speed || 50) / 50;
+			materialRef.current.uniforms.uTime.value =
+				clock.getElapsedTime() * speedFactor;
+
+			const { color1, color2 } = getShaderColors();
+			materialRef.current.uniforms.uColor1.value = new THREE.Vector3(
+				...color1
+			);
+			materialRef.current.uniforms.uColor2.value = new THREE.Vector3(
+				...color2
+			);
+
+			// Update resolution if window size changes
+			if (
+				materialRef.current.uniforms.uResolution.value.x !==
+					size.width ||
+				materialRef.current.uniforms.uResolution.value.y !== size.height
+			) {
+				materialRef.current.uniforms.uResolution.value.set(
+					size.width,
+					size.height
+				);
+			}
+		}
+	});
+
+	// Initial shader colors and resolution
+	const { color1, color2 } = getShaderColors();
+
 	return (
-		<mesh>
+		<mesh ref={meshRef} position={[0, 0, 0]}>
 			<planeGeometry args={[2, 2]} />
 			<shaderMaterial
+				ref={materialRef}
 				vertexShader={vertexShader}
 				fragmentShader={fragmentShader}
-				// No uniforms needed for this simplified version
+				uniforms={{
+					uTime: { value: 0 },
+					uColor1: { value: new THREE.Vector3(...color1) },
+					uColor2: { value: new THREE.Vector3(...color2) },
+					uResolution: {
+						value: new THREE.Vector2(size.width, size.height),
+					},
+				}}
 			/>
 		</mesh>
 	);
@@ -104,7 +159,7 @@ const ShaderCanvas: React.FC<ShaderCanvasProps> = ({
 					powerPreference: "high-performance",
 				}}
 			>
-				<GradientMaterial />
+				<GradientShaderMesh />
 			</Canvas>
 		</div>
 	);

@@ -1,26 +1,15 @@
 "use client";
 
-import { Sliders, Palette, MousePointer } from "lucide-react";
-import { ToggleWidget } from "@/components/ui/toggle-widget";
-import { ToggleSwitch } from "@/components/ui/toggle-switch";
+import React from "react";
+import { Clock, Palette, MousePointer } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useAlgorithm } from "@/context/algorithm-context";
+import { ToggleWidget } from "@/components/ui/toggle-widget";
 
 export function GradientWidget() {
 	const { params, updateParams, algorithm, isSaving } = useAlgorithm();
 
-	// Only render if the algorithm is "gradient"
-	if (algorithm !== "gradient") {
-		return null;
-	}
-
-	// Handle slider changes
-	const handleParamChange = (param: keyof typeof params, value: number) => {
-		updateParams({ [param]: value });
-	};
-
-	// Handle toggle changes
-	const handleToggleChange = (param: keyof typeof params, value: boolean) => {
+	const handleParamChange = (param: string, value: number) => {
 		updateParams({ [param]: value });
 	};
 
@@ -34,36 +23,64 @@ export function GradientWidget() {
 			<div className="p-4 space-y-5">
 				{/* Info message */}
 				<p className="text-xs opacity-70 font-mono bg-black/5 dark:bg-white/5 p-2 rounded">
-					High-quality gradient with gamma correction and
-					anti-banding. Move your mouse over the canvas to change the
-					gradient direction.
+					Animated gradient shader with interactive controls.
 				</p>
 
-				{/* Color Controls */}
+				{/* Animation Speed */}
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
-						<label className="text-xs font-mono tracking-tight">
-							Interaction
-						</label>
 						<div className="flex items-center gap-2">
-							<MousePointer size={14} className="opacity-60" />
-							<span className="text-xs font-mono opacity-70">
-								Mouse controlled
-							</span>
+							<Clock size={14} className="opacity-60" />
+							<label className="text-xs font-mono tracking-tight">
+								Animation Speed
+							</label>
 						</div>
+						<span className="text-xs font-mono bg-black/5 dark:bg-white/5 px-1.5 py-0.5 rounded-md min-w-[2.5rem] text-center">
+							{params.speed || 50}%
+						</span>
 					</div>
+					<Slider
+						value={[params.speed || 50]}
+						onValueChange={(value) =>
+							handleParamChange("speed", value[0])
+						}
+						min={0}
+						max={100}
+						step={1}
+						disabled={isSaving}
+						className={`[&_[role=slider]]:h-3 [&_[role=slider]]:w-3 [&_[role=slider]]:bg-black [&_[role=slider]]:dark:bg-white ${
+							isSaving ? "opacity-50" : ""
+						}`}
+					/>
 				</div>
 
-				{/* When we add more gradient types */}
+				{/* Gradient Info */}
 				<div className="space-y-3 pt-2 border-t border-black/5 dark:border-white/5">
 					<p className="text-xs font-mono tracking-tight">
-						GRADIENT OPTIONS
+						INTERACTIVE FEATURES
 					</p>
 
-					<div className="flex items-center justify-between p-2 rounded-md bg-black/5 dark:bg-white/5 text-center">
-						<span className="text-xs font-mono w-full">
-							More gradient types coming soon!
-						</span>
+					<div className="space-y-2">
+						<div className="flex items-center justify-between p-2 rounded-md bg-black/5 dark:bg-white/5">
+							<div className="flex items-center gap-2">
+								<MousePointer
+									size={14}
+									className="opacity-60"
+								/>
+								<span className="text-xs font-mono">
+									Colors from palette
+								</span>
+							</div>
+						</div>
+
+						<div className="flex items-center justify-between p-2 rounded-md bg-black/5 dark:bg-white/5">
+							<div className="flex items-center gap-2">
+								<Clock size={14} className="opacity-60" />
+								<span className="text-xs font-mono">
+									Time-based animation
+								</span>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
