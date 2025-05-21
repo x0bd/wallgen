@@ -15,8 +15,7 @@ export type AlgorithmType =
 	| "perlinNoise"
 	| "cellular"
 	| "abstract"
-	| "flowPlotter"
-	| "gradient";
+	| "flowPlotter";
 
 // Define abstract sub-algorithm types
 export type AbstractSubAlgorithmType =

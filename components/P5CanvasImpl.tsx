@@ -840,13 +840,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 					);
 					currentRowPositions.push(p.height);
 					currentColPositions.push(p.width);
-				} else if (algorithm === "gradient") {
-					// New case for P5 gradient
-					particles = []; // No particles needed for a simple P5 gradient
-					if (p) {
-						// Ensure p5 instance is available
-						p.redraw(); // Trigger a redraw to apply gradient
-					}
 				} else {
 					// Default fallback: clear background and draw border
 					p.background(bgR, bgG, bgB);
@@ -1602,27 +1595,6 @@ const P5CanvasImpl: React.FC<P5CanvasProps> = ({
 							}
 						}
 					}
-				} else if (algorithm === "gradient") {
-					// New P5 gradient drawing logic
-					const { background, foreground, foregroundColors } =
-						getColors();
-					const c1 =
-						foregroundColors && foregroundColors.length > 0
-							? foregroundColors[0]
-							: foreground;
-					const c2 =
-						foregroundColors && foregroundColors.length > 1
-							? foregroundColors[1]
-							: background;
-
-					for (let y = 0; y < p.height; y++) {
-						const inter = p.map(y, 0, p.height, 0, 1);
-						const c = p.lerpColor(c1, c2, inter);
-						p.stroke(c);
-						p.line(0, y, p.width, y);
-					}
-					// No loop needed for a static gradient, or handle animation differently if desired
-					// p.noLoop();
 				} else {
 					p.background(bgR, bgG, bgB);
 					drawBorder(appColors.foreground);
